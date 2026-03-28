@@ -89,47 +89,24 @@ export class CharacterRenderer {
     g.fillEllipse(leftShoeX  - shoeW * 0.25, shoeY - shoeH * 0.1, shoeW * 0.5, shoeH * 0.3);
     g.fillEllipse(rightShoeX - shoeW * 0.25, shoeY - shoeH * 0.1, shoeW * 0.5, shoeH * 0.3);
 
-    // ── Legs / pants ──────────────────────────────────────────────────────
+    // ── Clothing (legs + body combined) ──────────────────────────────────
     const leftLegX  = -legW * 0.9 - legW;
     const rightLegX =  legW * 0.9;
-
-    // shadow side of each leg (right side of each)
-    g.fillStyle(darken(config.bottomColor, 0.75));
-    g.fillRect(leftLegX  + legW * 0.55, legTopY, legW * 0.45, legH);
-    g.fillRect(rightLegX + legW * 0.55, legTopY, legW * 0.45, legH);
-
-    g.fillStyle(config.bottomColor);
-    g.fillRect(leftLegX,  legTopY, legW, legH);
-    g.fillRect(rightLegX, legTopY, legW, legH);
-
-    // waistband
     const waistH = Math.max(2, 2 * scale);
-    g.fillStyle(darken(config.bottomColor, 0.65));
-    g.fillRect(-bodyW / 2, bodyBottomY - waistH, bodyW, waistH);
 
-    // ── Body / shirt ──────────────────────────────────────────────────────
-    // shadow: right half of body
-    g.fillStyle(darken(config.topColor, 0.75));
-    g.fillRect(0, bodyTopY, bodyW / 2, bodyH);
-
-    g.fillStyle(config.topColor);
-    g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
-
-    // re-draw shadow on top so it overlaps properly
-    g.fillStyle(darken(config.topColor, 0.75));
-    g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
-
-    // shoulder "wings" — wider on dad
-    g.fillStyle(config.topColor);
-    g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
-    g.fillRect( bodyW / 2,                bodyTopY, shoulderExtra, bodyH * 0.25);
-
-    // collar V-shape highlight
-    g.fillStyle(lighten(config.topColor, 1.25));
-    g.fillTriangle(
-      0,            bodyTopY,
-      -bodyW * 0.28, bodyTopY + bodyH * 0.18,
-       bodyW * 0.28, bodyTopY + bodyH * 0.18
+    drawClothing(
+      g,
+      config.clothingStyle ?? 'tshirt_shorts',
+      isDad,
+      config.topColor,
+      config.bottomColor,
+      config.skinTone,
+      bodyW, bodyH, bodyTopY, bodyBottomY,
+      legW, legH, legTopY,
+      leftLegX, rightLegX,
+      waistH,
+      shoulderExtra,
+      scale
     );
 
     // ── Arms ──────────────────────────────────────────────────────────────
@@ -250,6 +227,417 @@ export class CharacterRenderer {
 
     container.add(g);
     return container;
+  }
+}
+
+// ─── Clothing drawing ─────────────────────────────────────────────────────────
+
+function drawClothing(
+  g: Phaser.GameObjects.Graphics,
+  style: string,
+  isDad: boolean,
+  topColor: number,
+  bottomColor: number,
+  skinTone: number,
+  bodyW: number,
+  bodyH: number,
+  bodyTopY: number,
+  bodyBottomY: number,
+  legW: number,
+  legH: number,
+  legTopY: number,
+  leftLegX: number,
+  rightLegX: number,
+  waistH: number,
+  shoulderExtra: number,
+  scale: number
+): void {
+  // Determine if this style uses a dress/skirt shape (Lillian only)
+  const isDressStyle = !isDad && (
+    style === 'dress_simple' ||
+    style === 'dress_floral' ||
+    style === 'dress_sundress' ||
+    style === 'skirt_top'
+  );
+
+  if (isDressStyle) {
+    // ── Dress / skirt styles — no separate legs ──────────────────────────
+    const dressTopY  = bodyTopY;
+    const dressBot   = legTopY + legH * 0.1;   // hem slightly above shoes
+    const dressH     = dressBot - dressTopY;
+
+    if (style === 'dress_simple') {
+      // A-line: narrow at top, slightly flared at bottom
+      const topHalfW  = bodyW * 0.5;
+      const botHalfW  = bodyW * 0.75;
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillTriangle(
+        topHalfW * 0.2, dressTopY,
+        botHalfW * 1.1, dressBot,
+        botHalfW,       dressBot
+      );
+      g.fillStyle(topColor);
+      g.fillTriangle(
+        -topHalfW, dressTopY,
+         topHalfW, dressTopY,
+        -botHalfW, dressBot
+      );
+      g.fillTriangle(
+        topHalfW, dressTopY,
+        botHalfW, dressBot,
+       -botHalfW, dressBot
+      );
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, dressTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 dressTopY, shoulderExtra, bodyH * 0.25);
+      // collar V
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             dressTopY,
+        -bodyW * 0.28, dressTopY + bodyH * 0.18,
+         bodyW * 0.28, dressTopY + bodyH * 0.18
+      );
+
+    } else if (style === 'dress_floral') {
+      // Wider flared A-line with dot pattern
+      const topHalfW = bodyW * 0.5;
+      const botHalfW = bodyW * 0.95;
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillTriangle(
+        topHalfW * 0.2, dressTopY,
+        botHalfW * 1.1, dressBot,
+        botHalfW,       dressBot
+      );
+      g.fillStyle(topColor);
+      g.fillTriangle(
+        -topHalfW, dressTopY,
+         topHalfW, dressTopY,
+        -botHalfW, dressBot
+      );
+      g.fillTriangle(
+        topHalfW, dressTopY,
+        botHalfW, dressBot,
+       -botHalfW, dressBot
+      );
+      // Floral dots
+      const dotColor = lighten(topColor, 1.5);
+      g.fillStyle(dotColor, 0.75);
+      const dotR = Math.max(1, scale * 0.9);
+      const dotPositions = [
+        { x: -bodyW * 0.25, y: dressTopY + dressH * 0.25 },
+        { x:  bodyW * 0.2,  y: dressTopY + dressH * 0.3  },
+        { x: -bodyW * 0.05, y: dressTopY + dressH * 0.5  },
+        { x: -bodyW * 0.4,  y: dressTopY + dressH * 0.55 },
+        { x:  bodyW * 0.38, y: dressTopY + dressH * 0.5  },
+        { x:  bodyW * 0.1,  y: dressTopY + dressH * 0.7  },
+        { x: -bodyW * 0.3,  y: dressTopY + dressH * 0.75 },
+        { x:  bodyW * 0.5,  y: dressTopY + dressH * 0.7  },
+      ];
+      for (const d of dotPositions) {
+        g.fillCircle(d.x, d.y, dotR);
+      }
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, dressTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 dressTopY, shoulderExtra, bodyH * 0.25);
+      // collar V
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             dressTopY,
+        -bodyW * 0.28, dressTopY + bodyH * 0.18,
+         bodyW * 0.28, dressTopY + bodyH * 0.18
+      );
+
+    } else if (style === 'dress_sundress') {
+      // Wide flared with spaghetti straps
+      const topHalfW = bodyW * 0.38;
+      const botHalfW = bodyW * 1.05;
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillTriangle(
+        topHalfW * 0.2, dressTopY,
+        botHalfW * 1.1, dressBot,
+        botHalfW,       dressBot
+      );
+      g.fillStyle(topColor);
+      g.fillTriangle(
+        -topHalfW, dressTopY,
+         topHalfW, dressTopY,
+        -botHalfW, dressBot
+      );
+      g.fillTriangle(
+        topHalfW, dressTopY,
+        botHalfW, dressBot,
+       -botHalfW, dressBot
+      );
+      // spaghetti straps (thin lines over skin at shoulder)
+      const strapW = Math.max(1.5, scale * 1.2);
+      g.lineStyle(strapW, darken(topColor, 0.85), 1);
+      g.beginPath();
+      g.moveTo(-bodyW * 0.22, dressTopY);
+      g.lineTo(-bodyW * 0.38, dressTopY - bodyH * 0.15);
+      g.strokePath();
+      g.beginPath();
+      g.moveTo( bodyW * 0.22, dressTopY);
+      g.lineTo( bodyW * 0.38, dressTopY - bodyH * 0.15);
+      g.strokePath();
+      // collar line
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             dressTopY,
+        -bodyW * 0.22, dressTopY + bodyH * 0.14,
+         bodyW * 0.22, dressTopY + bodyH * 0.14
+      );
+
+    } else if (style === 'skirt_top') {
+      // Separate top + flared skirt
+      const midY    = bodyTopY + bodyH;   // waist
+      const skirtBot = dressBot;
+
+      // Top piece
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+      // collar V
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             bodyTopY,
+        -bodyW * 0.28, bodyTopY + bodyH * 0.18,
+         bodyW * 0.28, bodyTopY + bodyH * 0.18
+      );
+
+      // Skirt (bottomColor)
+      const skirtH    = skirtBot - midY;
+      const skirtTopW = bodyW * 0.5;
+      const skirtBotW = bodyW * 1.0;
+      g.fillStyle(darken(bottomColor, 0.75));
+      g.fillTriangle(
+        skirtTopW * 0.2, midY,
+        skirtBotW * 1.1, skirtBot,
+        skirtBotW,       skirtBot
+      );
+      g.fillStyle(bottomColor);
+      g.fillTriangle(
+        -skirtTopW, midY,
+         skirtTopW, midY,
+        -skirtBotW, skirtBot
+      );
+      g.fillTriangle(
+        skirtTopW, midY,
+        skirtBotW, skirtBot,
+       -skirtBotW, skirtBot
+      );
+      // waistband
+      g.fillStyle(darken(bottomColor, 0.65));
+      g.fillRect(-bodyW / 2, midY - waistH, bodyW, waistH);
+      void skirtH;
+    }
+
+  } else if (style === 'overalls' && !isDad) {
+    // ── Overalls (Lillian) ───────────────────────────────────────────────
+    const denim = 0x3a5a8c;
+    const denimDark = darken(denim, 0.75);
+    const shirtColor = skinTone;   // white under-shirt effect using skin as base
+
+    // Legs in denim
+    g.fillStyle(denimDark);
+    g.fillRect(leftLegX  + legW * 0.55, legTopY, legW * 0.45, legH);
+    g.fillRect(rightLegX + legW * 0.55, legTopY, legW * 0.45, legH);
+    g.fillStyle(denim);
+    g.fillRect(leftLegX,  legTopY, legW, legH);
+    g.fillRect(rightLegX, legTopY, legW, legH);
+
+    // Bib (chest area)
+    g.fillStyle(denimDark);
+    g.fillRect(0, bodyTopY + bodyH * 0.05, bodyW / 2, bodyH * 0.8);
+    g.fillStyle(denim);
+    g.fillRect(-bodyW / 2, bodyTopY + bodyH * 0.05, bodyW, bodyH * 0.8);
+    g.fillStyle(denimDark);
+    g.fillRect(bodyW * 0.15, bodyTopY + bodyH * 0.05, bodyW * 0.35, bodyH * 0.8);
+
+    // Straps over shoulders (using topColor for shirt straps)
+    const strapW = Math.max(2, scale * 1.5);
+    g.lineStyle(strapW, denim, 1);
+    g.beginPath();
+    g.moveTo(-bodyW * 0.15, bodyTopY + bodyH * 0.05);
+    g.lineTo(-bodyW * 0.3,  bodyTopY - bodyH * 0.08);
+    g.strokePath();
+    g.beginPath();
+    g.moveTo( bodyW * 0.15, bodyTopY + bodyH * 0.05);
+    g.lineTo( bodyW * 0.3,  bodyTopY - bodyH * 0.08);
+    g.strokePath();
+
+    // Small shirt collar/sleeves visible at shoulders
+    g.fillStyle(topColor);
+    g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+    g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+
+    // Pocket on bib
+    g.lineStyle(Math.max(1, scale * 0.5), denimDark, 1);
+    g.strokeRect(-bodyW * 0.18, bodyTopY + bodyH * 0.2, bodyW * 0.36, bodyH * 0.28);
+
+    // Waistband
+    g.fillStyle(denimDark);
+    g.fillRect(-bodyW / 2, bodyBottomY - waistH, bodyW, waistH);
+    void shirtColor;
+
+  } else {
+    // ── Standard pant-based styles (Dad all styles, Lillian tshirt_shorts / athletic / hoodie_jeans) ──
+
+    // Default bottom color — may be overridden per style
+    let legColor    = bottomColor;
+    let legColorDk  = darken(bottomColor, 0.75);
+
+    if (style === 'hoodie_jeans') {
+      legColor   = 0x3a5a8c;   // denim blue
+      legColorDk = darken(legColor, 0.75);
+    }
+
+    // Legs
+    g.fillStyle(legColorDk);
+    g.fillRect(leftLegX  + legW * 0.55, legTopY, legW * 0.45, legH);
+    g.fillRect(rightLegX + legW * 0.55, legTopY, legW * 0.45, legH);
+    g.fillStyle(legColor);
+    g.fillRect(leftLegX,  legTopY, legW, legH);
+    g.fillRect(rightLegX, legTopY, legW, legH);
+
+    // Waistband
+    g.fillStyle(darken(legColor, 0.65));
+    g.fillRect(-bodyW / 2, bodyBottomY - waistH, bodyW, waistH);
+
+    if (style === 'athletic') {
+      // Fitted shirt (same topColor) + shorts (same topColor, shorter)
+      const shortH = legH * 0.55;
+      // Re-draw legs shorter in topColor
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(leftLegX  + legW * 0.55, legTopY, legW * 0.45, shortH);
+      g.fillRect(rightLegX + legW * 0.55, legTopY, legW * 0.45, shortH);
+      g.fillStyle(topColor);
+      g.fillRect(leftLegX,  legTopY, legW, shortH);
+      g.fillRect(rightLegX, legTopY, legW, shortH);
+      // Waistband
+      g.fillStyle(darken(topColor, 0.65));
+      g.fillRect(-bodyW / 2, bodyBottomY - waistH, bodyW, waistH);
+
+      // Fitted body
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(0, bodyTopY, bodyW / 2, bodyH);
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // Shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+      // Side stripe highlight
+      g.fillStyle(lighten(topColor, 1.3), 0.5);
+      g.fillRect(-bodyW / 2, bodyTopY + bodyH * 0.1, bodyW * 0.12, bodyH * 0.8);
+
+    } else if (style === 'hoodie_jeans') {
+      // Wider hoodie body with hood peak at collar
+      const hoodieColor = topColor;
+      g.fillStyle(darken(hoodieColor, 0.75));
+      g.fillRect(0, bodyTopY, bodyW * 0.6, bodyH);
+      g.fillStyle(hoodieColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(hoodieColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // Wider shoulder wings for hoodie
+      const hoodShoulderW = shoulderExtra + 2 * scale;
+      g.fillStyle(hoodieColor);
+      g.fillRect(-bodyW / 2 - hoodShoulderW, bodyTopY, hoodShoulderW, bodyH * 0.35);
+      g.fillRect( bodyW / 2,                  bodyTopY, hoodShoulderW, bodyH * 0.35);
+      // Hood peak (small triangle above collar center)
+      g.fillStyle(darken(hoodieColor, 0.8));
+      g.fillTriangle(
+        -bodyW * 0.15, bodyTopY,
+         bodyW * 0.15, bodyTopY,
+         0,            bodyTopY - bodyH * 0.22
+      );
+      // Kangaroo pocket line
+      g.lineStyle(Math.max(1, scale * 0.6), darken(hoodieColor, 0.7), 1);
+      g.strokeRect(-bodyW * 0.28, bodyTopY + bodyH * 0.55, bodyW * 0.56, bodyH * 0.35);
+
+    } else if (style === 'polo_pants' && isDad) {
+      // Polo collar + longer pants (bottomColor stays, pants go full legH)
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(0, bodyTopY, bodyW / 2, bodyH);
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+      // Polo collar: small raised band + buttons
+      g.fillStyle(lighten(topColor, 1.3));
+      g.fillRect(-bodyW * 0.15, bodyTopY, bodyW * 0.3, bodyH * 0.18);
+      // button dots
+      g.fillStyle(darken(topColor, 0.6));
+      for (let bi = 0; bi < 3; bi++) {
+        g.fillCircle(0, bodyTopY + bodyH * (0.22 + bi * 0.18), Math.max(1, scale * 0.55));
+      }
+
+    } else if (style === 'casual_button' && isDad) {
+      // Button-up shirt — center line of buttons
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(0, bodyTopY, bodyW / 2, bodyH);
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+      // Center button placket line
+      g.lineStyle(Math.max(1, scale * 0.5), darken(topColor, 0.65), 1);
+      g.beginPath();
+      g.moveTo(0, bodyTopY);
+      g.lineTo(0, bodyTopY + bodyH);
+      g.strokePath();
+      // buttons
+      g.fillStyle(lighten(topColor, 1.4));
+      for (let bi = 0; bi < 4; bi++) {
+        g.fillCircle(0, bodyTopY + bodyH * (0.1 + bi * 0.22), Math.max(1, scale * 0.55));
+      }
+      // collar V
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             bodyTopY,
+        -bodyW * 0.28, bodyTopY + bodyH * 0.18,
+         bodyW * 0.28, bodyTopY + bodyH * 0.18
+      );
+
+    } else {
+      // tshirt_shorts (default) — original drawing
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(0, bodyTopY, bodyW / 2, bodyH);
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2, bodyTopY, bodyW, bodyH);
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillRect(bodyW * 0.15, bodyTopY, bodyW * 0.35, bodyH);
+      // shoulder wings
+      g.fillStyle(topColor);
+      g.fillRect(-bodyW / 2 - shoulderExtra, bodyTopY, shoulderExtra, bodyH * 0.25);
+      g.fillRect( bodyW / 2,                 bodyTopY, shoulderExtra, bodyH * 0.25);
+      // collar V-shape highlight
+      g.fillStyle(lighten(topColor, 1.25));
+      g.fillTriangle(
+        0,             bodyTopY,
+        -bodyW * 0.28, bodyTopY + bodyH * 0.18,
+         bodyW * 0.28, bodyTopY + bodyH * 0.18
+      );
+    }
   }
 }
 

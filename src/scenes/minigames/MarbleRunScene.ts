@@ -4,301 +4,607 @@ import { CharacterRenderer } from '../../systems/CharacterRenderer';
 import { SaveManager } from '../../systems/SaveManager';
 import { BaseMiniGameScene } from './BaseMiniGameScene';
 
-type PieceType = 'straight_h' | 'straight_v' | 'curve_tl' | 'curve_tr' | 'curve_bl' | 'curve_br' | 'funnel' | 'spiral' | 'splitter';
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PieceType =
+  | 'straight_h'
+  | 'straight_v'
+  | 'curve_ne'
+  | 'curve_nw'
+  | 'curve_se'
+  | 'curve_sw'
+  | 'funnel'
+  | 'splitter';
+
+type Socket = 'N' | 'S' | 'E' | 'W';
+
+// Which sockets does each piece type expose?
+const PIECE_SOCKETS: Record<PieceType, Socket[]> = {
+  straight_h: ['E', 'W'],
+  straight_v: ['N', 'S'],
+  curve_ne:   ['N', 'E'],
+  curve_nw:   ['N', 'W'],
+  curve_se:   ['S', 'E'],
+  curve_sw:   ['S', 'W'],
+  funnel:     ['N', 'S'],
+  splitter:   ['N', 'E', 'W'],
+};
+
+// Given entry socket, what is the exit socket?
+const EXIT_SOCKET: Record<PieceType, Partial<Record<Socket, Socket>>> = {
+  straight_h: { E: 'W', W: 'E' },
+  straight_v: { N: 'S', S: 'N' },
+  curve_ne:   { N: 'E', E: 'N' },
+  curve_nw:   { N: 'W', W: 'N' },
+  curve_se:   { S: 'E', E: 'S' },
+  curve_sw:   { S: 'W', W: 'S' },
+  funnel:     { N: 'S', S: 'N' },
+  splitter:   { N: 'E', E: 'N', W: 'N' },
+};
+
+// Opposite socket
+function opposite(s: Socket): Socket {
+  return s === 'N' ? 'S' : s === 'S' ? 'N' : s === 'E' ? 'W' : 'E';
+}
+
+// Direction delta for each socket (dc=col offset, dr=row offset)
+function socketDelta(s: Socket): { dc: number; dr: number } {
+  return s === 'N' ? { dc: 0, dr: -1 }
+    : s === 'S' ? { dc: 0, dr: 1 }
+    : s === 'E' ? { dc: 1, dr: 0 }
+    : { dc: -1, dr: 0 };
+}
+
+// Pixel offset of socket center relative to cell center
+function socketOffset(s: Socket, cell: number): { ox: number; oy: number } {
+  const h = cell / 2;
+  return s === 'N' ? { ox: 0, oy: -h }
+    : s === 'S' ? { ox: 0, oy: h }
+    : s === 'E' ? { ox: h, oy: 0 }
+    : { ox: -h, oy: 0 };
+}
 
 interface GridPiece {
   type: PieceType;
   col: number;
   row: number;
-  image: Phaser.GameObjects.Image;
+  gfx: Phaser.GameObjects.Graphics;
+  splitterFlip: boolean;
 }
 
-interface MarbleData {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+interface MarbleState {
+  col: number;
+  row: number;
+  entrySocket: Socket;
+  t: number;
+  freefall: boolean;
+  px: number;
+  py: number;
+  pvx: number;
+  pvy: number;
   gfx: Phaser.GameObjects.Graphics;
-  onPiece: GridPiece | null;
   active: boolean;
 }
 
-const CELL = 48;
-const GRID_COLS = 7;
-const GRID_ROWS = 11;
-const GRID_X = 160; // Left offset for palette
-const GRID_Y = 60;
+// ─── Layout constants ─────────────────────────────────────────────────────────
 
-const PIECE_PORTS: Record<PieceType, string[]> = {
-  straight_h: ['left', 'right'],
-  straight_v: ['top', 'bottom'],
-  curve_tl: ['top', 'left'],
-  curve_tr: ['top', 'right'],
-  curve_bl: ['bottom', 'left'],
-  curve_br: ['bottom', 'right'],
-  funnel: ['top', 'bottom'],
-  spiral: ['top', 'bottom'],
-  splitter: ['top', 'left', 'right'],
-};
+const CELL = 48;
+const PALETTE_W = 130;
+const GRID_COLS = 7;
+const GRID_ROWS = 12;
+const GRID_X = PALETTE_W + 4;
+const GRID_Y = 56;
+const MARBLE_SPEED = 150;
+const MAX_MARBLES = 10;
 
 const PALETTE_PIECES: PieceType[] = [
-  'straight_h', 'straight_v',
-  'curve_tl', 'curve_tr',
-  'curve_bl', 'curve_br',
-  'funnel', 'spiral', 'splitter',
+  'straight_h',
+  'straight_v',
+  'curve_ne',
+  'curve_nw',
+  'curve_se',
+  'curve_sw',
+  'funnel',
+  'splitter',
 ];
+
+const PIECE_LABELS: Record<PieceType, string> = {
+  straight_h: 'Horiz',
+  straight_v: 'Vert',
+  curve_ne:   'Crv NE',
+  curve_nw:   'Crv NW',
+  curve_se:   'Crv SE',
+  curve_sw:   'Crv SW',
+  funnel:     'Funnel',
+  splitter:   'Y Split',
+};
+
+// ─── Scene ────────────────────────────────────────────────────────────────────
 
 export class MarbleRunScene extends BaseMiniGameScene {
   protected gameName = 'marble_run';
 
   private grid: (GridPiece | null)[][] = [];
-  private marbles: MarbleData[] = [];
+  private marbles: MarbleState[] = [];
   private buildMode = true;
+  private modeBtnText!: Phaser.GameObjects.Text;
   private draggingType: PieceType | null = null;
-  private dragGhost: Phaser.GameObjects.Image | null = null;
-  private gridContainer!: Phaser.GameObjects.Container;
-  private overlayGfx!: Phaser.GameObjects.Graphics;
+  private dragGhost!: Phaser.GameObjects.Graphics;
+  private dragGhostLabel!: Phaser.GameObjects.Text;
+  private snapHighlight!: Phaser.GameObjects.Graphics;
+  private connectionGfx!: Phaser.GameObjects.Graphics;
+  private tutorialOverlay!: Phaser.GameObjects.Container;
 
-  constructor() { super({ key: 'MarbleRunScene' }); }
+  constructor() {
+    super({ key: 'MarbleRunScene' });
+  }
 
   create(): void {
     this.score1 = 0;
-    this.score2 = 0;
     this.grid = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
     this.marbles = [];
+    this.buildMode = true;
 
     this.createBackground();
-    this.createHUD('Marbles', '');
-    this.createGrid();
+    this.createHUD('Marbles Dropped', '');
     this.createPalette();
     this.createControls();
     this.createCharacters();
+    this.createDragSystem();
+    this.createTutorialOverlay();
+    this.placeSampleRun();
+  }
+
+  update(_time: number, delta: number): void {
+    const dt = delta / 1000;
+    this.marbles = this.marbles.filter(m => {
+      if (!m.active) { m.gfx.destroy(); return false; }
+      return true;
+    });
+    for (const marble of this.marbles) {
+      this.updateMarble(marble, dt);
+    }
+    this.redrawConnectionDots();
   }
 
   private createBackground(): void {
-    // Living room interior
     const bg = this.add.graphics();
-    // Wall
+
+    // Beige wall
     bg.fillStyle(0xf5e6d3);
-    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT * 0.65);
-    // Floor
+    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT * 0.68);
+
+    // Baseboard
+    bg.fillStyle(0xd4b896);
+    bg.fillRect(0, GAME_HEIGHT * 0.68 - 10, GAME_WIDTH, 10);
+
+    // Wooden floor
     bg.fillStyle(0x8b6914);
-    bg.fillRect(0, GAME_HEIGHT * 0.65, GAME_WIDTH, GAME_HEIGHT * 0.35);
+    bg.fillRect(0, GAME_HEIGHT * 0.68, GAME_WIDTH, GAME_HEIGHT * 0.32);
+
     // Floor planks
     bg.lineStyle(1, 0x7a5c10, 0.5);
-    for (let fy = GAME_HEIGHT * 0.65; fy < GAME_HEIGHT; fy += 18) {
+    for (let fy = GAME_HEIGHT * 0.68; fy < GAME_HEIGHT; fy += 20) {
       bg.lineBetween(0, fy, GAME_WIDTH, fy);
     }
-    for (let fx = 0; fx < GAME_WIDTH; fx += 80) {
-      bg.lineBetween(fx, GAME_HEIGHT * 0.65, fx, GAME_HEIGHT);
+    for (let col = 0; col < 8; col++) {
+      bg.lineBetween(col * 70, GAME_HEIGHT * 0.68, col * 70, GAME_HEIGHT);
     }
-    // Bookshelf on right
+
+    // Bookshelf on right wall
+    const shelfX = GAME_WIDTH - 50;
     bg.fillStyle(0x6d4c41);
-    bg.fillRect(GAME_WIDTH - 56, 50, 50, GAME_HEIGHT * 0.5);
-    bg.lineStyle(1, 0x5d4037, 1);
-    for (let sy = 50; sy < GAME_HEIGHT * 0.5 + 50; sy += 40) {
-      bg.lineBetween(GAME_WIDTH - 56, sy, GAME_WIDTH - 6, sy);
+    bg.fillRect(shelfX, 55, 44, GAME_HEIGHT * 0.55);
+    bg.lineStyle(1, 0x4e342e, 1);
+    for (let sy = 55; sy < GAME_HEIGHT * 0.55 + 55; sy += 42) {
+      bg.lineBetween(shelfX, sy, shelfX + 44, sy);
     }
-    // Books
-    const bookColors = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6];
-    for (let b = 0; b < 5; b++) {
+    const bookColors = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xe67e22, 0x1abc9c];
+    let bx = shelfX + 3;
+    for (let b = 0; b < 14; b++) {
+      const shelfRow = Math.floor(b / 4);
+      const bookW = 8 + (b % 3) * 2;
+      const bookH = 24 + (b % 2) * 6;
       bg.fillStyle(bookColors[b % bookColors.length]);
-      bg.fillRect(GAME_WIDTH - 52 + b * 8, 58 + Math.floor(b / 5) * 40, 6, 28);
+      bg.fillRect(bx, 60 + shelfRow * 42, bookW, bookH);
+      bx += bookW + 2;
+      if (bx > shelfX + 40) { bx = shelfX + 3; }
     }
-    // Couch on bottom left
-    bg.fillStyle(0x8e44ad);
-    bg.fillRect(0, GAME_HEIGHT - 100, 80, 70);
-    bg.fillStyle(0x9b59b6);
-    bg.fillRect(4, GAME_HEIGHT - 110, 76, 20);
 
-    // Marble run frame
-    bg.lineStyle(4, 0x5d4037, 1);
-    bg.fillStyle(0xd4a96a, 0.3);
-    bg.fillRect(GRID_X - 8, GRID_Y - 8, GRID_COLS * CELL + 16, GRID_ROWS * CELL + 16);
-    bg.strokeRect(GRID_X - 8, GRID_Y - 8, GRID_COLS * CELL + 16, GRID_ROWS * CELL + 16);
+    // Couch bottom left
+    bg.fillStyle(0x7b1fa2);
+    bg.fillRect(0, GAME_HEIGHT - 90, 90, 60);
+    bg.fillStyle(0x9c27b0);
+    bg.fillRect(4, GAME_HEIGHT - 102, 82, 16);
+    bg.fillStyle(0x7b1fa2);
+    bg.fillRect(0, GAME_HEIGHT - 102, 10, 70);
+    bg.fillRect(82, GAME_HEIGHT - 102, 10, 70);
+    bg.fillStyle(0xab47bc);
+    bg.fillRoundedRect(12, GAME_HEIGHT - 88, 30, 42, 4);
+    bg.fillRoundedRect(50, GAME_HEIGHT - 88, 30, 42, 4);
 
-    // Grid lines
-    bg.lineStyle(1, 0xcccccc, 0.25);
+    // Marble run wooden frame
+    bg.lineStyle(5, 0x5d4037, 1);
+    bg.fillStyle(0xd4a96a, 0.15);
+    bg.fillRect(GRID_X - 10, GRID_Y - 6, GRID_COLS * CELL + 20, GRID_ROWS * CELL + 12);
+    bg.strokeRect(GRID_X - 10, GRID_Y - 6, GRID_COLS * CELL + 20, GRID_ROWS * CELL + 12);
+
+    // Visible grid lines
+    bg.lineStyle(1, 0xbbbbbb, 0.4);
     for (let c = 0; c <= GRID_COLS; c++) {
-      bg.lineBetween(GRID_X + c * CELL, GRID_Y, GRID_X + c * CELL, GRID_Y + GRID_ROWS * CELL);
+      bg.lineBetween(
+        GRID_X + c * CELL, GRID_Y,
+        GRID_X + c * CELL, GRID_Y + GRID_ROWS * CELL,
+      );
     }
     for (let r = 0; r <= GRID_ROWS; r++) {
-      bg.lineBetween(GRID_X, GRID_Y + r * CELL, GRID_X + GRID_COLS * CELL, GRID_Y + r * CELL);
+      bg.lineBetween(
+        GRID_X, GRID_Y + r * CELL,
+        GRID_X + GRID_COLS * CELL, GRID_Y + r * CELL,
+      );
     }
 
-    // Basket at bottom
+    // Collection tray at bottom
+    const trayX = GRID_X + GRID_COLS * CELL / 2 - 44;
+    const trayY = GRID_Y + GRID_ROWS * CELL + 8;
+    bg.fillStyle(0x5d4037);
+    bg.fillRect(trayX, trayY, 88, 24);
     bg.fillStyle(0x795548);
-    bg.fillRect(GRID_X + GRID_COLS * CELL / 2 - 30, GRID_Y + GRID_ROWS * CELL + 8, 60, 30);
-    bg.lineStyle(2, 0x5d4037, 1);
-    bg.strokeRect(GRID_X + GRID_COLS * CELL / 2 - 30, GRID_Y + GRID_ROWS * CELL + 8, 60, 30);
+    bg.fillRect(trayX + 2, trayY + 2, 84, 20);
+    bg.lineStyle(2, 0x4e342e, 1);
+    bg.strokeRect(trayX, trayY, 88, 24);
+    bg.setDepth(0);
 
-    this.overlayGfx = this.add.graphics();
-    this.overlayGfx.setDepth(20);
+    this.add.text(GRID_X + GRID_COLS * CELL / 2, trayY + 12, 'CATCH TRAY', {
+      fontSize: '9px', color: '#d4a96a',
+    }).setOrigin(0.5).setDepth(3);
 
-    this.gridContainer = this.add.container(0, 0);
-    this.gridContainer.setDepth(5);
+    this.snapHighlight = this.add.graphics();
+    this.snapHighlight.setDepth(8);
+
+    this.connectionGfx = this.add.graphics();
+    this.connectionGfx.setDepth(12);
   }
 
-  private createGrid(): void {
-    // Place a few default pieces to get started
-    this.placePiece('funnel', 3, 0);
-    this.placePiece('straight_v', 3, 1);
-    this.placePiece('curve_br', 3, 2);
-    this.placePiece('straight_h', 4, 2);
-    this.placePiece('curve_bl', 5, 2);
-    this.placePiece('straight_v', 5, 3);
+  private drawPiece(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    type: PieceType,
+  ): void {
+    const h = CELL / 2;
+    const tube = 10;
+    const tubeColor = 0x2980b9;
+    const tubeOutline = 0x1a5276;
+
+    gfx.clear();
+
+    switch (type) {
+      case 'straight_h': {
+        gfx.fillStyle(tubeColor);
+        gfx.fillRoundedRect(cx - h + 2, cy - tube, CELL - 4, tube * 2, 6);
+        gfx.lineStyle(2, tubeOutline, 1);
+        gfx.strokeRoundedRect(cx - h + 2, cy - tube, CELL - 4, tube * 2, 6);
+        gfx.fillStyle(0x85c1e9, 0.5);
+        gfx.fillRoundedRect(cx - h + 4, cy - tube + 2, CELL - 8, 5, 3);
+        break;
+      }
+      case 'straight_v': {
+        gfx.fillStyle(tubeColor);
+        gfx.fillRoundedRect(cx - tube, cy - h + 2, tube * 2, CELL - 4, 6);
+        gfx.lineStyle(2, tubeOutline, 1);
+        gfx.strokeRoundedRect(cx - tube, cy - h + 2, tube * 2, CELL - 4, 6);
+        gfx.fillStyle(0x85c1e9, 0.5);
+        gfx.fillRoundedRect(cx - tube + 2, cy - h + 4, 5, CELL - 8, 3);
+        break;
+      }
+      case 'curve_ne': {
+        this.drawCurveArc(gfx, cx + h, cy - h, h - tube, tube, Math.PI * 0.5, Math.PI, true);
+        break;
+      }
+      case 'curve_nw': {
+        this.drawCurveArc(gfx, cx - h, cy - h, h - tube, tube, 0, Math.PI * 0.5, false);
+        break;
+      }
+      case 'curve_se': {
+        this.drawCurveArc(gfx, cx + h, cy + h, h - tube, tube, Math.PI, Math.PI * 1.5, false);
+        break;
+      }
+      case 'curve_sw': {
+        this.drawCurveArc(gfx, cx - h, cy + h, h - tube, tube, Math.PI * 1.5, Math.PI * 2, true);
+        break;
+      }
+      case 'funnel': {
+        gfx.fillStyle(0xe67e22);
+        gfx.beginPath();
+        gfx.moveTo(cx - h + 4, cy - h + 4);
+        gfx.lineTo(cx + h - 4, cy - h + 4);
+        gfx.lineTo(cx + tube, cy + h - 4);
+        gfx.lineTo(cx - tube, cy + h - 4);
+        gfx.closePath();
+        gfx.fillPath();
+        gfx.lineStyle(2, 0xd35400, 1);
+        gfx.beginPath();
+        gfx.moveTo(cx - h + 4, cy - h + 4);
+        gfx.lineTo(cx + h - 4, cy - h + 4);
+        gfx.lineTo(cx + tube, cy + h - 4);
+        gfx.lineTo(cx - tube, cy + h - 4);
+        gfx.closePath();
+        gfx.strokePath();
+        gfx.fillStyle(0xf0a060, 0.5);
+        gfx.fillTriangle(cx - h + 6, cy - h + 6, cx + h - 6, cy - h + 6, cx - h + 16, cy - h + 16);
+        break;
+      }
+      case 'splitter': {
+        gfx.lineStyle(tube * 2, 0x27ae60, 1);
+        gfx.beginPath();
+        gfx.moveTo(cx, cy - h + 4);
+        gfx.lineTo(cx, cy);
+        gfx.strokePath();
+        gfx.beginPath();
+        gfx.moveTo(cx, cy);
+        gfx.lineTo(cx - h + 4, cy + h - 4);
+        gfx.strokePath();
+        gfx.beginPath();
+        gfx.moveTo(cx, cy);
+        gfx.lineTo(cx + h - 4, cy + h - 4);
+        gfx.strokePath();
+        gfx.lineStyle(2, 0x1e8449, 1);
+        gfx.beginPath();
+        gfx.moveTo(cx, cy - h + 4);
+        gfx.lineTo(cx, cy);
+        gfx.lineTo(cx - h + 4, cy + h - 4);
+        gfx.strokePath();
+        gfx.beginPath();
+        gfx.moveTo(cx, cy);
+        gfx.lineTo(cx + h - 4, cy + h - 4);
+        gfx.strokePath();
+        break;
+      }
+    }
+  }
+
+  private drawCurveArc(
+    gfx: Phaser.GameObjects.Graphics,
+    pivotX: number,
+    pivotY: number,
+    innerR: number,
+    thickness: number,
+    startAngle: number,
+    endAngle: number,
+    clockwise: boolean,
+  ): void {
+    const outerR = innerR + thickness * 2;
+    const midR = innerR + thickness;
+
+    gfx.fillStyle(0x2980b9);
+    gfx.beginPath();
+    gfx.arc(pivotX, pivotY, outerR, startAngle, endAngle, !clockwise);
+    gfx.arc(pivotX, pivotY, innerR, endAngle, startAngle, clockwise);
+    gfx.closePath();
+    gfx.fillPath();
+
+    gfx.lineStyle(2, 0x1a5276, 1);
+    gfx.beginPath();
+    gfx.arc(pivotX, pivotY, outerR, startAngle, endAngle, !clockwise);
+    gfx.strokePath();
+    gfx.beginPath();
+    gfx.arc(pivotX, pivotY, innerR, startAngle, endAngle, !clockwise);
+    gfx.strokePath();
+
+    gfx.lineStyle(3, 0x85c1e9, 0.5);
+    gfx.beginPath();
+    gfx.arc(pivotX, pivotY, midR, startAngle, endAngle, !clockwise);
+    gfx.strokePath();
   }
 
   private placePiece(type: PieceType, col: number, row: number): void {
-    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return;
+    if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) { return; }
     if (this.grid[row][col]) {
-      this.grid[row][col]!.image.destroy();
+      this.grid[row][col]!.gfx.destroy();
     }
-    const px = GRID_X + col * CELL + CELL / 2;
-    const py = GRID_Y + row * CELL + CELL / 2;
-    const textureKey = 'piece_' + type;
-    let img: Phaser.GameObjects.Image;
-    if (this.textures.exists(textureKey)) {
-      img = this.add.image(px, py, textureKey);
-    } else {
-      // Fallback colored rectangle
-      const fallGfx = this.add.graphics();
-      const pieceColor = type.startsWith('curve') ? 0x2980b9 : type === 'funnel' ? 0xe67e22 : type === 'spiral' ? 0x9b59b6 : 0x2ecc71;
-      fallGfx.fillStyle(pieceColor);
-      fallGfx.fillRect(px - CELL / 2 + 4, py - CELL / 2 + 4, CELL - 8, CELL - 8);
-      img = fallGfx as unknown as Phaser.GameObjects.Image;
-    }
-    img.setDepth(5);
-    this.gridContainer.add(img);
+    const cx = GRID_X + col * CELL + CELL / 2;
+    const cy = GRID_Y + row * CELL + CELL / 2;
+    const gfx = this.add.graphics();
+    gfx.setDepth(6);
+    this.drawPiece(gfx, cx, cy, type);
 
-    const piece: GridPiece = { type, col, row, image: img };
+    const piece: GridPiece = { type, col, row, gfx, splitterFlip: false };
     this.grid[row][col] = piece;
-    this.updateConnections();
   }
 
   private removePieceAt(col: number, row: number): void {
-    if (this.grid[row]?.[col]) {
-      this.grid[row][col]!.image.destroy();
+    const piece = this.grid[row]?.[col];
+    if (piece) {
+      piece.gfx.destroy();
       this.grid[row][col] = null;
-      this.updateConnections();
     }
   }
 
-  private updateConnections(): void {
+  private redrawConnectionDots(): void {
+    this.connectionGfx.clear();
+
+    // Yellow connected dots
     for (let r = 0; r < GRID_ROWS; r++) {
       for (let c = 0; c < GRID_COLS; c++) {
         const piece = this.grid[r][c];
-        if (!piece) continue;
-        let connected = false;
-        const ports = PIECE_PORTS[piece.type];
-        if (ports.includes('top') && r > 0 && this.grid[r - 1][c]) {
-          const other = this.grid[r - 1][c]!;
-          if (PIECE_PORTS[other.type].includes('bottom')) connected = true;
+        if (!piece) { continue; }
+        for (const sock of PIECE_SOCKETS[piece.type]) {
+          const { dc, dr } = socketDelta(sock);
+          const nc = c + dc;
+          const nr = r + dr;
+          if (nc < 0 || nc >= GRID_COLS || nr < 0 || nr >= GRID_ROWS) { continue; }
+          const neighbor = this.grid[nr][nc];
+          if (!neighbor) { continue; }
+          const neighborSock = opposite(sock);
+          if (!PIECE_SOCKETS[neighbor.type].includes(neighborSock)) { continue; }
+
+          const { ox, oy } = socketOffset(sock, CELL);
+          const dotX = GRID_X + c * CELL + CELL / 2 + ox;
+          const dotY = GRID_Y + r * CELL + CELL / 2 + oy;
+          this.connectionGfx.fillStyle(0xf1c40f, 1);
+          this.connectionGfx.fillCircle(dotX, dotY, 5);
+          this.connectionGfx.lineStyle(1.5, 0xe67e22, 1);
+          this.connectionGfx.strokeCircle(dotX, dotY, 5);
         }
-        if (ports.includes('bottom') && r < GRID_ROWS - 1 && this.grid[r + 1][c]) {
-          const other = this.grid[r + 1][c]!;
-          if (PIECE_PORTS[other.type].includes('top')) connected = true;
+      }
+    }
+
+    // Gray unconnected socket dots
+    for (let r = 0; r < GRID_ROWS; r++) {
+      for (let c = 0; c < GRID_COLS; c++) {
+        const piece = this.grid[r][c];
+        if (!piece) { continue; }
+        for (const sock of PIECE_SOCKETS[piece.type]) {
+          const { dc, dr } = socketDelta(sock);
+          const nc = c + dc;
+          const nr = r + dr;
+          const connected =
+            nc >= 0 && nc < GRID_COLS &&
+            nr >= 0 && nr < GRID_ROWS &&
+            !!this.grid[nr]?.[nc] &&
+            PIECE_SOCKETS[this.grid[nr]![nc]!.type].includes(opposite(sock));
+          if (!connected) {
+            const { ox, oy } = socketOffset(sock, CELL);
+            const dotX = GRID_X + c * CELL + CELL / 2 + ox;
+            const dotY = GRID_Y + r * CELL + CELL / 2 + oy;
+            this.connectionGfx.fillStyle(0xaaaaaa, 0.6);
+            this.connectionGfx.fillCircle(dotX, dotY, 4);
+          }
         }
-        if (ports.includes('left') && c > 0 && this.grid[r][c - 1]) {
-          const other = this.grid[r][c - 1]!;
-          if (PIECE_PORTS[other.type].includes('right')) connected = true;
-        }
-        if (ports.includes('right') && c < GRID_COLS - 1 && this.grid[r][c + 1]) {
-          const other = this.grid[r][c + 1]!;
-          if (PIECE_PORTS[other.type].includes('left')) connected = true;
-        }
-        piece.image.setTint(connected ? 0xaaffaa : 0xffffff);
       }
     }
   }
 
   private createPalette(): void {
     const palBg = this.add.graphics();
-    palBg.fillStyle(0x16213e, 0.9);
-    palBg.fillRoundedRect(4, 50, 150, GAME_HEIGHT - 60, 6);
+    palBg.fillStyle(0x1a2744, 0.95);
+    palBg.fillRoundedRect(2, 55, PALETTE_W - 4, GAME_HEIGHT - 62, 8);
+    palBg.setDepth(9);
 
-    this.add.text(78, 62, 'PIECES', { fontSize: '11px', color: '#ffd700' }).setOrigin(0.5);
+    this.add.text(PALETTE_W / 2, 66, 'PIECES', {
+      fontSize: '11px', color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(10);
 
+    this.add.text(PALETTE_W / 2, 78, 'drag to grid', {
+      fontSize: '8px', color: '#888888',
+    }).setOrigin(0.5).setDepth(10);
+
+    const itemH = 68;
     PALETTE_PIECES.forEach((type, i) => {
-      const px = 78;
-      const py = 88 + i * 72;
-      const textureKey = 'piece_' + type;
+      const itemY = 88 + i * itemH;
+      const itemCX = PALETTE_W / 2;
+      const itemCY = itemY + 24;
 
       const itemBg = this.add.graphics();
-      itemBg.fillStyle(0x2c3e50);
-      itemBg.fillRoundedRect(10, py - 24, 136, 56, 4);
+      itemBg.fillStyle(0x243052);
+      itemBg.fillRoundedRect(6, itemY, PALETTE_W - 12, itemH - 4, 6);
+      itemBg.setDepth(9);
 
-      let img: Phaser.GameObjects.Image;
-      if (this.textures.exists(textureKey)) {
-        img = this.add.image(px, py, textureKey).setScale(0.7);
-      } else {
-        const ig = this.add.graphics();
-        ig.fillStyle(0x3498db);
-        ig.fillRect(px - 18, py - 18, 36, 28);
-        img = ig as unknown as Phaser.GameObjects.Image;
-      }
-      img.setDepth(10);
+      const previewGfx = this.add.graphics();
+      previewGfx.setDepth(10);
+      this.drawPiece(previewGfx, itemCX, itemCY, type);
 
-      const label = type.replace(/_/g, ' ').replace('curve ', 'crv ');
-      this.add.text(px, py + 20, label, { fontSize: '9px', color: '#aaaaaa' }).setOrigin(0.5).setDepth(10);
+      this.add.text(itemCX, itemY + itemH - 10, PIECE_LABELS[type], {
+        fontSize: '8px', color: '#aaccff',
+      }).setOrigin(0.5).setDepth(10);
 
-      const zone = this.add.zone(px, py, 136, 56).setInteractive({ useHandCursor: true, draggable: true });
-      zone.setDepth(15);
+      const zone = this.add.zone(itemCX, itemCY, PALETTE_W - 12, itemH - 4)
+        .setInteractive({ useHandCursor: true, draggable: true })
+        .setDepth(11);
 
-      zone.on('dragstart', () => {
+      this.input.setDraggable(zone);
+
+      zone.on('dragstart', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
         this.draggingType = type;
-        const ghostKey = textureKey;
-        if (this.textures.exists(ghostKey)) {
-          this.dragGhost = this.add.image(0, 0, ghostKey).setAlpha(0.7).setDepth(50);
-        }
+        this.dragGhost.setVisible(true);
+        this.dragGhostLabel.setVisible(true);
+        this.drawPiece(this.dragGhost, dragX, dragY, type);
+        this.dragGhostLabel.setPosition(dragX, dragY + 26);
+        this.dragGhostLabel.setText(PIECE_LABELS[type]);
       });
 
       zone.on('drag', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-        if (this.dragGhost) {
-          this.dragGhost.setPosition(dragX, dragY);
+        this.drawPiece(this.dragGhost, dragX, dragY, type);
+        this.dragGhostLabel.setPosition(dragX, dragY + 26);
+
+        this.snapHighlight.clear();
+        if (dragX >= GRID_X && dragX < GRID_X + GRID_COLS * CELL &&
+            dragY >= GRID_Y && dragY < GRID_Y + GRID_ROWS * CELL) {
+          const snapCol = Math.floor((dragX - GRID_X) / CELL);
+          const snapRow = Math.floor((dragY - GRID_Y) / CELL);
+          this.snapHighlight.lineStyle(3, 0x00ff88, 0.9);
+          this.snapHighlight.fillStyle(0x00ff88, 0.15);
+          this.snapHighlight.fillRect(
+            GRID_X + snapCol * CELL, GRID_Y + snapRow * CELL, CELL, CELL,
+          );
+          this.snapHighlight.strokeRect(
+            GRID_X + snapCol * CELL, GRID_Y + snapRow * CELL, CELL, CELL,
+          );
         }
       });
 
       zone.on('dragend', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-        if (this.dragGhost) { this.dragGhost.destroy(); this.dragGhost = null; }
-        if (this.draggingType) {
-          const col = Math.round((dragX - GRID_X - CELL / 2) / CELL);
-          const row = Math.round((dragY - GRID_Y - CELL / 2) / CELL);
-          if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
-            if (this.buildMode) {
-              this.placePiece(this.draggingType, col, row);
-            }
-          }
-          this.draggingType = null;
-        }
-      });
+        this.dragGhost.setVisible(false);
+        this.dragGhostLabel.setVisible(false);
+        this.snapHighlight.clear();
 
-      this.input.setDraggable(zone);
+        if (this.buildMode && this.draggingType) {
+          if (dragX >= GRID_X && dragX < GRID_X + GRID_COLS * CELL &&
+              dragY >= GRID_Y && dragY < GRID_Y + GRID_ROWS * CELL) {
+            const snapCol = Math.floor((dragX - GRID_X) / CELL);
+            const snapRow = Math.floor((dragY - GRID_Y) / CELL);
+            this.placePiece(this.draggingType, snapCol, snapRow);
+          }
+        }
+        this.draggingType = null;
+      });
     });
   }
 
-  private createControls(): void {
-    // Add marble button
-    const addMarbleBtn = this.add.text(GAME_WIDTH / 2 + 50, 30, '+ Marble', {
-      fontSize: '14px', color: '#3498db',
-      backgroundColor: '#162040', padding: { x: 8, y: 4 },
-    }).setOrigin(0.5).setDepth(102).setInteractive({ useHandCursor: true });
-    addMarbleBtn.on('pointerdown', () => this.addMarble());
+  private createDragSystem(): void {
+    this.dragGhost = this.add.graphics();
+    this.dragGhost.setDepth(50).setAlpha(0.75).setVisible(false);
 
-    // Build / Remove toggle
-    const modeBtn = this.add.text(GAME_WIDTH / 2 - 50, 30, '✏️ Build', {
-      fontSize: '14px', color: '#2ecc71',
-      backgroundColor: '#162040', padding: { x: 8, y: 4 },
+    this.dragGhostLabel = this.add.text(0, 0, '', {
+      fontSize: '9px', color: '#ffffff',
+      backgroundColor: '#000000aa', padding: { x: 3, y: 2 },
+    }).setOrigin(0.5).setDepth(51).setVisible(false);
+  }
+
+  private createControls(): void {
+    // Large Drop Marble button
+    const dropBtn = this.add.text(GAME_WIDTH - 8, 28, '🔮 Drop Marble', {
+      fontSize: '15px',
+      color: '#ffffff',
+      backgroundColor: '#1a7a2a',
+      padding: { x: 10, y: 6 },
+      fontStyle: 'bold',
+    }).setOrigin(1, 0.5).setDepth(102).setInteractive({ useHandCursor: true });
+
+    dropBtn.on('pointerover', () => { dropBtn.setStyle({ backgroundColor: '#22aa33' }); });
+    dropBtn.on('pointerout', () => { dropBtn.setStyle({ backgroundColor: '#1a7a2a' }); });
+    dropBtn.on('pointerdown', () => {
+      dropBtn.setStyle({ backgroundColor: '#0f4d18' });
+      this.dropMarble();
+    });
+    dropBtn.on('pointerup', () => { dropBtn.setStyle({ backgroundColor: '#1a7a2a' }); });
+
+    // Build / Remove mode toggle
+    this.modeBtnText = this.add.text(PALETTE_W / 2, 800, '✏️ Build', {
+      fontSize: '12px', color: '#2ecc71',
+      backgroundColor: '#162040', padding: { x: 6, y: 4 },
     }).setOrigin(0.5).setDepth(102).setInteractive({ useHandCursor: true });
-    modeBtn.on('pointerdown', () => {
+
+    this.modeBtnText.on('pointerdown', () => {
       this.buildMode = !this.buildMode;
-      modeBtn.setText(this.buildMode ? '✏️ Build' : '🗑️ Remove');
-      modeBtn.setColor(this.buildMode ? '#2ecc71' : '#e74c3c');
+      this.modeBtnText.setText(this.buildMode ? '✏️ Build' : '🗑️ Remove');
+      this.modeBtnText.setColor(this.buildMode ? '#2ecc71' : '#e74c3c');
     });
 
-    // Click to remove in remove mode
+    // Remove mode click handler on grid
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (!this.buildMode) {
+      if (!this.buildMode && !this.draggingType) {
         const col = Math.floor((ptr.x - GRID_X) / CELL);
         const row = Math.floor((ptr.y - GRID_Y) / CELL);
         if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
@@ -310,145 +616,243 @@ export class MarbleRunScene extends BaseMiniGameScene {
 
   private createCharacters(): void {
     const state = SaveManager.load();
-    CharacterRenderer.create(this, 22, GAME_HEIGHT - 70, state.dadConfig, 1.2).setDepth(4);
-    CharacterRenderer.create(this, 54, GAME_HEIGHT - 60, state.lillianConfig, 1).setDepth(4);
+    CharacterRenderer.create(this, GAME_WIDTH - 80, GAME_HEIGHT - 72, state.dadConfig, 1).setDepth(4);
+    CharacterRenderer.create(this, GAME_WIDTH - 40, GAME_HEIGHT - 64, state.lillianConfig, 0.9).setDepth(4);
   }
 
-  private addMarble(): void {
-    if (this.marbles.length >= 10) return;
-    // Find topmost piece
-    let startX = GRID_X + GRID_COLS * CELL / 2;
-    let startY = GRID_Y + 10;
-    for (let r = 0; r < GRID_ROWS; r++) {
+  private createTutorialOverlay(): void {
+    this.tutorialOverlay = this.add.container(0, 0).setDepth(200);
+
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x000000, 0.7);
+    dimBg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    this.tutorialOverlay.add(dimBg);
+
+    const box = this.add.graphics();
+    box.fillStyle(0x1a2744, 1);
+    box.fillRoundedRect(40, GAME_HEIGHT / 2 - 100, GAME_WIDTH - 80, 200, 16);
+    box.lineStyle(3, 0xffd700, 1);
+    box.strokeRoundedRect(40, GAME_HEIGHT / 2 - 100, GAME_WIDTH - 80, 200, 16);
+    this.tutorialOverlay.add(box);
+
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, '🎱 Marble Run!', {
+      fontSize: '22px', color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.tutorialOverlay.add(title);
+
+    const msg = this.add.text(
+      GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30,
+      'Drag pieces from the left panel\nto build your marble run!\n\nThen tap  🔮 Drop Marble\nto send a marble through!',
+      { fontSize: '15px', color: '#ecf0f1', align: 'center', lineSpacing: 4 },
+    ).setOrigin(0.5);
+    this.tutorialOverlay.add(msg);
+
+    const tapMsg = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, 'Tap anywhere to start!', {
+      fontSize: '13px', color: '#aaaaaa',
+    }).setOrigin(0.5);
+    this.tutorialOverlay.add(tapMsg);
+
+    const dismissZone = this.add.zone(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT)
+      .setInteractive();
+    dismissZone.once('pointerdown', () => {
+      this.tutorialOverlay.setVisible(false);
+      dismissZone.destroy();
+    });
+    this.tutorialOverlay.add(dismissZone);
+  }
+
+  private placeSampleRun(): void {
+    this.placePiece('funnel',     3, 0);
+    this.placePiece('straight_v', 3, 1);
+    this.placePiece('curve_se',   3, 2);
+    this.placePiece('straight_h', 4, 2);
+    this.placePiece('curve_sw',   5, 2);
+    this.placePiece('straight_v', 5, 3);
+    this.placePiece('curve_se',   5, 4);
+    this.placePiece('straight_h', 6, 4);
+  }
+
+  private dropMarble(): void {
+    if (this.marbles.length >= MAX_MARBLES) { return; }
+
+    let startCol = -1;
+    let startRow = -1;
+
+    outer: for (let r = 0; r < GRID_ROWS; r++) {
       for (let c = 0; c < GRID_COLS; c++) {
         const piece = this.grid[r][c];
-        if (piece) {
-          startX = GRID_X + c * CELL + CELL / 2;
-          startY = GRID_Y + r * CELL;
-          break;
+        if (piece && PIECE_SOCKETS[piece.type].includes('N')) {
+          startCol = c;
+          startRow = r;
+          break outer;
         }
       }
-      if (startY !== GRID_Y + 10) break;
     }
 
     const gfx = this.add.graphics();
     gfx.setDepth(15);
-    const marble: MarbleData = {
-      x: startX, y: startY, vx: 0, vy: 0, gfx, onPiece: null, active: true,
+
+    if (startCol === -1) {
+      const px = GRID_X + Math.floor(GRID_COLS / 2) * CELL + CELL / 2;
+      const py = GRID_Y;
+      const marble: MarbleState = {
+        col: -1, row: -1, entrySocket: 'N', t: 0,
+        freefall: true, px, py, pvx: 0, pvy: 0,
+        gfx, active: true,
+      };
+      this.marbles.push(marble);
+      this.addScore(1);
+      return;
+    }
+
+    const cx = GRID_X + startCol * CELL + CELL / 2;
+    const cy = GRID_Y + startRow * CELL;
+    const marble: MarbleState = {
+      col: startCol, row: startRow, entrySocket: 'N', t: 0,
+      freefall: false, px: cx, py: cy, pvx: 0, pvy: 0,
+      gfx, active: true,
     };
     this.marbles.push(marble);
     this.addScore(1);
   }
 
-  update(_time: number, delta: number): void {
-    const dt = delta / 1000;
-
-    this.marbles = this.marbles.filter(m => {
-      if (!m.active) { m.gfx.destroy(); return false; }
-      return true;
-    });
-
-    for (const marble of this.marbles) {
-      this.updateMarble(marble, dt);
+  private updateMarble(marble: MarbleState, dt: number): void {
+    if (marble.freefall) {
+      this.updateFreefallMarble(marble, dt);
+    } else {
+      this.updatePieceMarble(marble, dt);
     }
-
-    this.drawOverlay();
+    this.drawMarble(marble);
   }
 
-  private updateMarble(marble: MarbleData, dt: number): void {
-    const gravity = 200;
-    marble.vy += gravity * dt;
+  private updateFreefallMarble(marble: MarbleState, dt: number): void {
+    const gravity = 400;
+    marble.pvy += gravity * dt;
+    marble.px += marble.pvx * dt;
+    marble.py += marble.pvy * dt;
 
-    const col = Math.floor((marble.x - GRID_X) / CELL);
-    const row = Math.floor((marble.y - GRID_Y) / CELL);
-    const piece = (row >= 0 && row < GRID_ROWS && col >= 0 && col < GRID_COLS) ? this.grid[row][col] : null;
-
-    if (piece) {
-      marble.onPiece = piece;
-      const cx = GRID_X + piece.col * CELL + CELL / 2;
-      const cy = GRID_Y + piece.row * CELL + CELL / 2;
-
-      switch (piece.type) {
-        case 'straight_v':
-          // Falls straight down, snap to center x
-          marble.x += (cx - marble.x) * 0.3;
-          marble.vx *= 0.8;
-          break;
-        case 'straight_h':
-          // Slides horizontally with slight downward slope
-          marble.vx = marble.vx === 0 ? 80 : marble.vx;
-          marble.vy = 30;
-          marble.y += (cy - marble.y) * 0.1;
-          break;
-        case 'curve_br':
-          if (marble.vy > 0 && marble.vx >= 0) { marble.vx = 120; marble.vy = 0; }
-          marble.y += (cy - marble.y) * 0.1;
-          break;
-        case 'curve_bl':
-          if (marble.vy > 0 && marble.vx <= 0) { marble.vx = -120; marble.vy = 0; }
-          marble.y += (cy - marble.y) * 0.1;
-          break;
-        case 'curve_tr':
-          if (marble.vx > 0) { marble.vx = 0; marble.vy = 120; }
-          marble.x += (cx - marble.x) * 0.1;
-          break;
-        case 'curve_tl':
-          if (marble.vx < 0) { marble.vx = 0; marble.vy = 120; }
-          marble.x += (cx - marble.x) * 0.1;
-          break;
-        case 'funnel':
-          marble.x += (cx - marble.x) * 0.2;
-          marble.vx *= 0.5;
-          break;
-        case 'spiral':
-          // Spiral movement - rotates around center
-          marble.vy = 60;
-          marble.vx = Math.sin(marble.y * 0.15) * 80;
-          marble.x += (cx - marble.x) * 0.05;
-          break;
-        case 'splitter':
-          if (Math.random() < 0.01) {
-            marble.vx = Math.random() < 0.5 ? -100 : 100;
-            marble.vy = 0;
-          }
-          marble.x += (cx - marble.x) * 0.05;
-          break;
-      }
-    } else {
-      marble.onPiece = null;
+    if (marble.px < GRID_X + 8) { marble.px = GRID_X + 8; marble.pvx = Math.abs(marble.pvx) * 0.6; }
+    if (marble.px > GRID_X + GRID_COLS * CELL - 8) {
+      marble.px = GRID_X + GRID_COLS * CELL - 8;
+      marble.pvx = -Math.abs(marble.pvx) * 0.6;
     }
 
-    marble.x += marble.vx * dt;
-    marble.y += marble.vy * dt;
+    const col = Math.floor((marble.px - GRID_X) / CELL);
+    const row = Math.floor((marble.py - GRID_Y) / CELL);
+    if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
+      const piece = this.grid[row]?.[col];
+      if (piece && PIECE_SOCKETS[piece.type].includes('N')) {
+        marble.col = col;
+        marble.row = row;
+        marble.entrySocket = 'N';
+        marble.t = 0;
+        marble.freefall = false;
+        marble.pvx = 0;
+        marble.pvy = 0;
+        return;
+      }
+    }
 
-    // World bounds
-    if (marble.x < GRID_X) { marble.x = GRID_X; marble.vx *= -0.6; }
-    if (marble.x > GRID_X + GRID_COLS * CELL) { marble.x = GRID_X + GRID_COLS * CELL; marble.vx *= -0.6; }
-
-    // Off bottom - collect in basket
-    if (marble.y > GRID_Y + GRID_ROWS * CELL + 30) {
+    if (marble.py > GRID_Y + GRID_ROWS * CELL + 40) {
       marble.active = false;
     }
-
-    // Draw marble
-    marble.gfx.clear();
-    if (this.textures.exists('marble')) {
-      // Image already handles visuals
-    }
-    marble.gfx.fillStyle(0x3498db);
-    marble.gfx.fillCircle(marble.x, marble.y, 7);
-    marble.gfx.fillStyle(0x85c1e9, 0.8);
-    marble.gfx.fillCircle(marble.x - 2, marble.y - 2, 3);
-    marble.gfx.fillStyle(0xffffff, 0.5);
-    marble.gfx.fillCircle(marble.x - 1, marble.y - 2, 1.5);
   }
 
-  private drawOverlay(): void {
-    this.overlayGfx.clear();
-    // Draw marble shadows
-    for (const marble of this.marbles) {
-      this.overlayGfx.fillStyle(0x000000, 0.15);
-      this.overlayGfx.fillEllipse(marble.x, marble.y + 8, 12, 4);
+  private updatePieceMarble(marble: MarbleState, dt: number): void {
+    const piece = this.grid[marble.row]?.[marble.col];
+    if (!piece) {
+      marble.freefall = true;
+      marble.pvy = 0;
+      marble.pvx = 0;
+      return;
     }
+
+    let exitSock: Socket | undefined = EXIT_SOCKET[piece.type][marble.entrySocket];
+
+    // Splitter alternates exit direction on first entry (t === 0)
+    if (piece.type === 'splitter' && marble.entrySocket === 'N' && marble.t === 0) {
+      exitSock = piece.splitterFlip ? 'W' : 'E';
+      piece.splitterFlip = !piece.splitterFlip;
+    }
+
+    if (!exitSock) {
+      marble.freefall = true;
+      marble.pvy = 50;
+      return;
+    }
+
+    const cx = GRID_X + marble.col * CELL + CELL / 2;
+    const cy = GRID_Y + marble.row * CELL + CELL / 2;
+    const entryOff = socketOffset(marble.entrySocket, CELL);
+    const exitOff = socketOffset(exitSock, CELL);
+    const entryX = cx + entryOff.ox;
+    const entryY = cy + entryOff.oy;
+    const exitX = cx + exitOff.ox;
+    const exitY = cy + exitOff.oy;
+
+    const dist = Math.sqrt((exitX - entryX) ** 2 + (exitY - entryY) ** 2);
+    const travelTime = dist / MARBLE_SPEED;
+
+    marble.t += dt / (travelTime > 0.001 ? travelTime : 0.001);
+
+    if (marble.t >= 1) {
+      marble.t = 1;
+      marble.px = exitX;
+      marble.py = exitY;
+
+      const { dc, dr } = socketDelta(exitSock);
+      const nextCol = marble.col + dc;
+      const nextRow = marble.row + dr;
+
+      if (nextCol >= 0 && nextCol < GRID_COLS && nextRow >= 0 && nextRow < GRID_ROWS) {
+        const nextPiece = this.grid[nextRow]?.[nextCol];
+        const nextEntry = opposite(exitSock);
+        if (nextPiece && PIECE_SOCKETS[nextPiece.type].includes(nextEntry)) {
+          marble.col = nextCol;
+          marble.row = nextRow;
+          marble.entrySocket = nextEntry;
+          marble.t = 0;
+          return;
+        }
+      }
+
+      marble.freefall = true;
+      marble.pvx = exitSock === 'E' ? 60 : exitSock === 'W' ? -60 : 0;
+      marble.pvy = exitSock === 'S' || exitSock === 'N' ? 20 : 0;
+      return;
+    }
+
+    if (piece.type.startsWith('curve')) {
+      const angle = Math.atan2(entryY - cy, entryX - cx);
+      const exitAngle = Math.atan2(exitY - cy, exitX - cx);
+      const r = Math.sqrt((entryX - cx) ** 2 + (entryY - cy) ** 2);
+      let da = exitAngle - angle;
+      while (da > Math.PI) { da -= 2 * Math.PI; }
+      while (da < -Math.PI) { da += 2 * Math.PI; }
+      const a = angle + da * marble.t;
+      marble.px = cx + Math.cos(a) * r;
+      marble.py = cy + Math.sin(a) * r;
+    } else {
+      marble.px = entryX + (exitX - entryX) * marble.t;
+      marble.py = entryY + (exitY - entryY) * marble.t;
+    }
+  }
+
+  private drawMarble(marble: MarbleState): void {
+    const x = marble.px;
+    const y = marble.py;
+    const r = 8;
+
+    marble.gfx.clear();
+    marble.gfx.fillStyle(0x000000, 0.18);
+    marble.gfx.fillEllipse(x + 2, y + 4, r * 2.2, r * 0.9);
+    marble.gfx.fillStyle(0x2980b9);
+    marble.gfx.fillCircle(x, y, r);
+    marble.gfx.lineStyle(1.5, 0x85c1e9, 0.6);
+    marble.gfx.strokeCircle(x, y, r - 2);
+    marble.gfx.fillStyle(0xffffff, 0.7);
+    marble.gfx.fillCircle(x - 3, y - 3, 3);
+    marble.gfx.fillStyle(0xffffff, 0.35);
+    marble.gfx.fillCircle(x - 2, y - 2, 1.5);
   }
 }

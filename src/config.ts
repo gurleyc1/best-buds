@@ -63,6 +63,25 @@ export const CLOTHING_COLORS = [
   { name: 'Lime', value: 0xadff2f },
 ];
 
+export const CLOTHING_STYLES_DAD = [
+  { id: 'tshirt_shorts', label: 'T-Shirt & Shorts' },
+  { id: 'polo_pants', label: 'Polo & Pants' },
+  { id: 'hoodie_jeans', label: 'Hoodie & Jeans' },
+  { id: 'athletic', label: 'Athletic Wear' },
+  { id: 'casual_button', label: 'Button Shirt' },
+];
+
+export const CLOTHING_STYLES_LILLIAN = [
+  { id: 'tshirt_shorts', label: 'T-Shirt & Shorts' },
+  { id: 'dress_simple', label: 'Simple Dress' },
+  { id: 'dress_floral', label: 'Floral Dress' },
+  { id: 'dress_sundress', label: 'Sundress' },
+  { id: 'overalls', label: 'Overalls' },
+  { id: 'athletic', label: 'Athletic Wear' },
+  { id: 'skirt_top', label: 'Skirt & Top' },
+  { id: 'hoodie_jeans', label: 'Hoodie & Jeans' },
+];
+
 export const ACCESSORIES = {
   dad: ['none', 'glasses_round', 'glasses_square', 'sunglasses', 'hat_cap', 'hat_beanie', 'hat_sun'],
   lillian: ['none', 'hair_bow', 'hair_clip', 'headband', 'sunglasses', 'hat_cap', 'hat_sun'],

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import {
   SCENE_KEYS, COLORS, GAME_WIDTH, GAME_HEIGHT,
-  HAIR_STYLES, HAIR_COLORS, SKIN_TONES, CLOTHING_COLORS, ACCESSORIES
+  HAIR_STYLES, HAIR_COLORS, SKIN_TONES, CLOTHING_COLORS, ACCESSORIES,
+  CLOTHING_STYLES_DAD, CLOTHING_STYLES_LILLIAN
 } from '../config';
 import { CharacterConfig } from '../types';
 import { CharacterRenderer } from '../systems/CharacterRenderer';
@@ -159,6 +160,7 @@ export class CustomizeScene extends Phaser.Scene {
     const panelW = GAME_WIDTH - 192;
 
     yOff = this.buildHairStyleSection(yOff, panelW, cfg);
+    yOff = this.buildClothingStyleSection(yOff, panelW, cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'HAIR COLOR', HAIR_COLORS, 'hairColor', cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'SKIN TONE', SKIN_TONES, 'skinTone', cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'SHIRT COLOR', CLOTHING_COLORS, 'topColor', cfg);
@@ -261,6 +263,48 @@ export class CustomizeScene extends Phaser.Scene {
 
     const rows = Math.ceil(swatches.length / cols);
     return yOff + rows * (sz + gap) + 10;
+  }
+
+  private buildClothingStyleSection(yOff: number, _panelW: number, cfg: CharacterConfig): number {
+    yOff = this.buildSectionHeader(yOff, 'STYLE');
+    const styles = this.activeTab === 'dad' ? CLOTHING_STYLES_DAD : CLOTHING_STYLES_LILLIAN;
+    const btnH = 26;
+    const btnW = 86;
+    const gap = 4;
+    const cols = 3;
+
+    styles.forEach((s, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const bx = col * (btnW + gap) + 4;
+      const by = yOff + row * (btnH + gap);
+
+      const isSelected = cfg.clothingStyle === s.id;
+      const bg = this.add.graphics();
+      bg.fillStyle(isSelected ? COLORS.TEAL : 0x2c3e50);
+      bg.fillRoundedRect(bx, by, btnW, btnH, 4);
+      if (isSelected) {
+        bg.lineStyle(2, 0xffd700, 1);
+        bg.strokeRoundedRect(bx, by, btnW, btnH, 4);
+      }
+
+      const txt = this.add.text(bx + btnW / 2, by + btnH / 2, s.label, {
+        fontSize: '9px', color: isSelected ? '#ffffff' : '#aaaaaa',
+      }).setOrigin(0.5);
+
+      const zone = this.add.zone(bx + btnW / 2, by + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => {
+        this.currentConfig.clothingStyle = s.id;
+        this.refreshPreview();
+        this.buildOptions();
+      });
+
+      this.contentContainer.add([bg, txt, zone]);
+      this.optionObjects.push(bg, txt, zone);
+    });
+
+    const rows = Math.ceil(styles.length / cols);
+    return yOff + rows * (btnH + gap) + 10;
   }
 
   private buildAccessorySection(yOff: number, _panelW: number, cfg: CharacterConfig): number {

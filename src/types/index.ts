@@ -3,6 +3,7 @@ export interface CharacterConfig {
   skinTone: number;
   hairStyle: string;
   hairColor: number;
+  clothingStyle: string;
   topColor: number;
   bottomColor: number;
   shoeColor: number;

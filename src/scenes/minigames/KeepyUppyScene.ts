@@ -4,48 +4,62 @@ import { CharacterRenderer } from '../../systems/CharacterRenderer';
 import { SaveManager } from '../../systems/SaveManager';
 import { BaseMiniGameScene } from './BaseMiniGameScene';
 
+// Character hit-zone constants
+const CHAR_WIDTH_RANGE = 80;   // horizontal radius around character for hit detection
+const CHAR_REACH_UP   = 150;   // how far above character's head is reachable
+
 export class KeepyUppyScene extends BaseMiniGameScene {
   protected gameName = 'keepy_uppy';
 
+  // Balloon physics state
   private ballX = GAME_WIDTH / 2;
-  private ballY = 300;
-  private ballVX = 20;
-  private ballVY = -50;
-  private ballR = 22;
+  private ballY = 0;
+  private ballVX = 0;
+  private ballVY = 0;
+  private readonly ballR = 22;
+  private readonly gravityY = 50;
 
+  // Wind
   private windValue = 0;
   private windDir = 1;
   private windTimer = 0;
   private windDirTimer = 0;
+  private windText!: Phaser.GameObjects.Text;
 
+  // Score / game state
   private hits = 0;
-  private gravity = 40;
-
-  private ballGfx!: Phaser.GameObjects.Graphics;
-  private windGfx!: Phaser.GameObjects.Graphics;
-  private dadContainer!: Phaser.GameObjects.Container;
-  private lillianContainer!: Phaser.GameObjects.Container;
-  private dadRaised = false;
-  private lillianRaised = false;
-  private raiseTimer = 0;
   private hitsText!: Phaser.GameObjects.Text;
 
-  private groundY = GAME_HEIGHT - 80;
+  // Character positions (x only – y is always groundY)
+  private dadX = 80;
+  private lillianX = GAME_WIDTH - 80;
+  private readonly groundY: number = GAME_HEIGHT - 80;
+
+  // Graphics
+  private ballGfx!: Phaser.GameObjects.Graphics;
+  private dadContainer!: Phaser.GameObjects.Container;
+  private lillianContainer!: Phaser.GameObjects.Container;
 
   constructor() { super({ key: 'KeepyUppyScene' }); }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Lifecycle
+  // ─────────────────────────────────────────────────────────────────────────────
+
   create(): void {
-    this.score1 = 0;
-    this.hits = 0;
-    this.ballX = GAME_WIDTH / 2;
-    this.ballY = 300;
-    this.ballVX = 20;
-    this.ballVY = -50;
+    // Reset state
+    this.score1    = 0;
+    this.hits      = 0;
+    this.ballX     = GAME_WIDTH / 2;
+    this.ballY     = this.groundY - 250;
+    this.ballVX    = (Math.random() - 0.5) * 30;
+    this.ballVY    = -80;
     this.windValue = 0;
-    this.windDir = 1;
+    this.windDir   = 1;
     this.windTimer = 0;
     this.windDirTimer = 0;
-    this.gravity = 40;
+    this.dadX      = 80;
+    this.lillianX  = GAME_WIDTH - 80;
 
     this.createBackground();
     this.createCharacters();
@@ -55,11 +69,16 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     this.gameActive = true;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Background
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private createBackground(): void {
     const bg = this.add.graphics();
+
     // Sky gradient
     bg.fillGradientStyle(0x87ceeb, 0x87ceeb, 0xc9e8f9, 0xc9e8f9, 1);
-    bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT * 0.72);
+    bg.fillRect(0, 0, GAME_WIDTH, this.groundY);
 
     // Sun
     bg.fillStyle(0xffd700);
@@ -73,21 +92,17 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     this.drawCloud(bg, 320, 80, 50);
     this.drawCloud(bg, 420, 150, 40);
 
-    // Trees on sides
-    this.drawTree(bg, 30, 480);
-    this.drawTree(bg, 60, 510);
-    this.drawTree(bg, GAME_WIDTH - 50, 490);
-    this.drawTree(bg, GAME_WIDTH - 20, 520);
+    // Trees
+    this.drawTree(bg, 30,  this.groundY - 20);
+    this.drawTree(bg, 62,  this.groundY + 10);
+    this.drawTree(bg, GAME_WIDTH - 50, this.groundY - 10);
+    this.drawTree(bg, GAME_WIDTH - 18, this.groundY + 15);
 
-    // Ground
+    // Ground (grass strip)
     bg.fillStyle(0x4caf50);
-    bg.fillRect(0, this.groundY - 20, GAME_WIDTH, GAME_HEIGHT - this.groundY + 20);
+    bg.fillRect(0, this.groundY - 20, GAME_WIDTH, GAME_HEIGHT - (this.groundY - 20));
     bg.fillStyle(0x388e3c);
     bg.fillRect(0, this.groundY - 20, GAME_WIDTH, 20);
-
-    // Wind indicator area
-    this.windGfx = this.add.graphics();
-    this.windGfx.setDepth(50);
   }
 
   private drawCloud(g: Phaser.GameObjects.Graphics, x: number, y: number, size: number): void {
@@ -107,70 +122,151 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     g.fillCircle(x + 8, baseY - 42, 16);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Characters
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private createCharacters(): void {
     const state = SaveManager.load();
+
     this.dadContainer = CharacterRenderer.create(
-      this, 80, this.groundY - 20, state.dadConfig, 1.8
+      this, this.dadX, this.groundY, state.dadConfig, 1.8
     );
     this.dadContainer.setDepth(5);
 
     this.lillianContainer = CharacterRenderer.create(
-      this, GAME_WIDTH - 80, this.groundY - 20, state.lillianConfig, 1.5
+      this, this.lillianX, this.groundY, state.lillianConfig, 1.5
     );
     this.lillianContainer.setDepth(5);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Ball & HUD
+  // ─────────────────────────────────────────────────────────────────────────────
 
   private createBallAndUI(): void {
     this.ballGfx = this.add.graphics();
     this.ballGfx.setDepth(10);
 
+    // "Hits: X" – prominent centre-top
     this.hitsText = this.add.text(GAME_WIDTH / 2, 30, 'Hits: 0', {
       fontSize: '22px', color: '#ffd700', fontStyle: 'bold',
       stroke: '#1a1a2e', strokeThickness: 4,
     }).setOrigin(0.5).setDepth(101);
 
-    // Instruction
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'Tap anywhere to hit the balloon!', {
+    // Wind indicator text – left side, below HUD
+    this.windText = this.add.text(10, 56, '', {
       fontSize: '14px', color: '#ffffff',
-      backgroundColor: '#00000055', padding: { x: 10, y: 4 },
-    }).setOrigin(0.5).setDepth(101);
+      stroke: '#000000', strokeThickness: 3,
+    }).setDepth(101);
+
+    // Instruction footer
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 30,
+      'Tap left = move Dad  |  Tap right = move Lillian',
+      {
+        fontSize: '12px', color: '#ffffff',
+        backgroundColor: '#00000066', padding: { x: 8, y: 3 },
+      }
+    ).setOrigin(0.5).setDepth(101);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Input
+  // ─────────────────────────────────────────────────────────────────────────────
 
   private setupInput(): void {
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
       if (!this.gameActive) return;
-      // Check if balloon near tap
-      const dx = Math.abs(this.ballX - ptr.x);
-      const dist = Phaser.Math.Distance.Between(this.ballX, this.ballY, ptr.x, ptr.y);
-      if (dist < 120 + this.ballR && this.ballY <= ptr.y + 20) {
-        this.hitBalloon(ptr.x, ptr.y);
+
+      const tapX = ptr.x;
+      const tapY = ptr.y;
+
+      // Move the correct character toward the tap
+      if (tapX < GAME_WIDTH / 2) {
+        this.moveCharacter('dad', tapX);
+      } else {
+        this.moveCharacter('lillian', tapX);
       }
-      void dx;
+
+      // Hit detection: balloon must be ABOVE tap and near a character
+      if (this.ballY >= tapY) return;   // balloon not above the tap
+
+      // Check each character for proximity
+      const dadDx = Math.abs(this.ballX - this.dadX);
+      const lilDx = Math.abs(this.ballX - this.lillianX);
+
+      // Head of character is roughly 80px above groundY (at scale 1.8/1.5)
+      const dadHeadY   = this.groundY - 80;
+      const lillHeadY  = this.groundY - 65;
+
+      const dadReachable  = dadDx  <= CHAR_WIDTH_RANGE && this.ballY >= dadHeadY  - CHAR_REACH_UP;
+      const lilReachable  = lilDx  <= CHAR_WIDTH_RANGE && this.ballY >= lillHeadY - CHAR_REACH_UP;
+
+      if (dadReachable || lilReachable) {
+        // Animate the character(s) that can reach it
+        if (dadReachable)  this.animateHit(this.dadContainer);
+        if (lilReachable)  this.animateHit(this.lillianContainer);
+        this.hitBalloon(tapX);
+      }
     });
   }
 
-  private hitBalloon(tapX: number, _tapY: number): void {
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Game logic
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private moveCharacter(who: 'dad' | 'lillian', targetX: number): void {
+    // Clamp to screen with a small margin
+    const clampedX = Phaser.Math.Clamp(targetX, 30, GAME_WIDTH - 30);
+    if (who === 'dad') {
+      this.dadX = clampedX;
+      this.tweens.add({
+        targets: this.dadContainer,
+        x: clampedX,
+        duration: 120,
+        ease: 'Power1',
+      });
+    } else {
+      this.lillianX = clampedX;
+      this.tweens.add({
+        targets: this.lillianContainer,
+        x: clampedX,
+        duration: 120,
+        ease: 'Power1',
+      });
+    }
+  }
+
+  private animateHit(container: Phaser.GameObjects.Container): void {
+    const baseY = this.groundY;
+    this.tweens.add({
+      targets: container,
+      y: baseY - 8,
+      duration: 80,
+      ease: 'Power1',
+      yoyo: true,
+      onComplete: () => container.setY(baseY),
+    });
+  }
+
+  private hitBalloon(tapX: number): void {
     this.hits++;
     this.score1 = this.hits;
     this.scoreText1?.setText(String(this.hits));
     this.hitsText.setText('Hits: ' + this.hits);
 
-    const upForce = 250 + Math.random() * 200;
-    const horizontalPush = (tapX - this.ballX) * 0.15 + (Math.random() - 0.5) * 50;
-    this.ballVY = -upForce;
-    this.ballVX += horizontalPush;
-    this.ballVX = Phaser.Math.Clamp(this.ballVX, -150, 150);
+    // Always upward – strong random pop
+    const upForce = 280 + Math.random() * 170;
+    const hPush   = (tapX - this.ballX) * 0.1 + (Math.random() - 0.5) * 40;
 
-    // Arm raise animation
-    this.dadRaised = true;
-    this.lillianRaised = true;
-    this.raiseTimer = 400;
+    this.ballVY = -upForce;          // always negative (upward)
+    this.ballVX = Phaser.Math.Clamp(this.ballVX + hPush, -180, 180);
 
-    // Scale pulse on balloon
+    // Scale-squash pulse on balloon graphic
     this.tweens.add({
       targets: this.ballGfx,
-      scaleX: 1.2, scaleY: 0.85,
-      duration: 100,
+      scaleX: 1.2, scaleY: 0.82,
+      duration: 90,
       yoyo: true,
     });
 
@@ -179,75 +275,68 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Wind system
+  // ─────────────────────────────────────────────────────────────────────────────
+
   private updateWind(delta: number): void {
-    this.windTimer += delta / 1000;
+    this.windTimer    += delta / 1000;
     this.windDirTimer += delta / 1000;
 
-    // Increase wind every 30 seconds
+    // Increase wind strength every 30 s, max 2.5
     if (this.windTimer >= 30) {
       this.windTimer = 0;
-      this.windValue = Math.min(3.0, this.windValue + 0.5);
+      this.windValue = Math.min(2.5, this.windValue + 0.3);
     }
 
-    // Reverse wind direction every 60 seconds
-    if (this.windDirTimer >= 60) {
+    // Reverse direction every 45 s
+    if (this.windDirTimer >= 45) {
       this.windDirTimer = 0;
       this.windDir *= -1;
     }
-
-    // After 100 hits wind increases faster
-    if (this.hits > 100) {
-      this.windValue = Math.min(3.0, this.windValue + delta / 60000);
-    }
   }
 
-  private drawWindIndicator(): void {
-    this.windGfx.clear();
-    if (this.windValue <= 0) return;
-
-    const numLeaves = Math.ceil(this.windValue * 2);
-    const startX = this.windDir > 0 ? 20 : GAME_WIDTH - 20;
-    const windColor = this.windValue > 2 ? 0xe74c3c : this.windValue > 1 ? 0xf39c12 : 0xffffff;
-
-    this.windGfx.fillStyle(windColor, 0.7);
-    const arrowDir = this.windDir > 0 ? '→' : '←';
-    void arrowDir;
-
-    for (let i = 0; i < numLeaves; i++) {
-      const lx = startX + this.windDir * i * 20;
-      const ly = 65 + i * 2;
-      this.windGfx.fillEllipse(lx, ly, 10, 5);
+  private updateWindIndicator(): void {
+    if (this.windValue <= 0) {
+      this.windText.setText('');
+      return;
     }
+    const arrowCount = Math.ceil(this.windValue);
+    const arrow      = this.windDir > 0 ? '→' : '←';
+    const arrows     = arrow.repeat(arrowCount);
 
-    // Wind text indicator
-    this.windGfx.fillStyle(0x000000, 0.4);
-    this.windGfx.fillRoundedRect(10, 58, 100, 18, 4);
+    let color = '#ffffff';
+    if (this.windValue > 2.0) color = '#ff6b6b';
+    else if (this.windValue > 1.0) color = '#ffa500';
+
+    this.windText.setText('\uD83D\uDCA8 ' + arrows).setColor(color);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Update loop
+  // ─────────────────────────────────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
     if (!this.gameActive) return;
     const dt = delta / 1000;
 
     this.updateWind(delta);
+    this.updateWindIndicator();
 
-    // Difficulty ramp
-    const gravMult = this.hits > 50 ? 1.4 : 1.0;
-    const currentGravity = this.gravity * gravMult;
-
-    // Apply wind
-    this.ballVX += this.windDir * this.windValue * 20 * dt;
+    // Apply wind (horizontal force each frame)
+    this.ballVX += this.windDir * this.windValue * 25 * dt;
 
     // Apply gravity
-    this.ballVY += currentGravity * dt;
+    this.ballVY += this.gravityY * dt;
 
-    // Move ball
+    // Air drag (light)
+    this.ballVX *= (1 - 0.4 * dt);
+
+    // Move balloon
     this.ballX += this.ballVX * dt;
     this.ballY += this.ballVY * dt;
 
-    // Drag
-    this.ballVX *= (1 - 0.5 * dt);
-
-    // Wall bounces
+    // Wall bounces (horizontal)
     if (this.ballX - this.ballR < 0) {
       this.ballX = this.ballR;
       this.ballVX = Math.abs(this.ballVX) * 0.7;
@@ -256,72 +345,86 @@ export class KeepyUppyScene extends BaseMiniGameScene {
       this.ballX = GAME_WIDTH - this.ballR;
       this.ballVX = -Math.abs(this.ballVX) * 0.7;
     }
-    if (this.ballY - this.ballR < 40) {
-      this.ballY = 40 + this.ballR;
-      this.ballVY = Math.abs(this.ballVY) * 0.5;
+
+    // Ceiling bounce
+    if (this.ballY - this.ballR < 55) {
+      this.ballY = 55 + this.ballR;
+      this.ballVY = Math.abs(this.ballVY) * 0.4;
     }
 
-    // Ground bounce (no fail)
-    if (this.ballY + this.ballR >= this.groundY - 20) {
-      this.ballY = this.groundY - 20 - this.ballR;
-      this.ballVY = -Math.abs(this.ballVY) * 0.4 - 100; // Bounce back up
+    // Ground – no game over, gentle nudge upward
+    const groundLine = this.groundY - this.ballR - 5;
+    if (this.ballY >= groundLine) {
+      this.ballY = groundLine;
+      this.ballVY = -200;   // gentle nudge
       this.ballVX *= 0.8;
+      this.showGroundMessage();
     }
 
-    // Arm raise decay
-    if (this.raiseTimer > 0) {
-      this.raiseTimer -= delta;
-      if (this.raiseTimer <= 0) {
-        this.dadRaised = false;
-        this.lillianRaised = false;
-      }
-    }
-
-    // Character bobbing when raised
-    if (this.dadRaised) {
-      this.dadContainer.setY(this.groundY - 20 - Math.sin(Date.now() * 0.01) * 6);
-    } else {
-      this.dadContainer.setY(this.groundY - 20);
-    }
-    if (this.lillianRaised) {
-      this.lillianContainer.setY(this.groundY - 20 - Math.sin(Date.now() * 0.01 + 1) * 5);
-    } else {
-      this.lillianContainer.setY(this.groundY - 20);
-    }
-
-    // Draw balloon
     this.drawBalloon();
-    this.drawWindIndicator();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Helpers
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private _groundMsgCooldown = 0;
+
+  private showGroundMessage(): void {
+    // Debounce so it doesn't fire every frame
+    const now = Date.now();
+    if (now - this._groundMsgCooldown < 1500) return;
+    this._groundMsgCooldown = now;
+
+    const txt = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Keep it up! \uD83C\uDF88', {
+      fontSize: '26px', color: '#ff69b4', fontStyle: 'bold',
+      stroke: '#1a1a2e', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(200);
+
+    this.tweens.add({
+      targets: txt,
+      y: txt.y - 60,
+      alpha: 0,
+      duration: 1200,
+      ease: 'Power2',
+      onComplete: () => txt.destroy(),
+    });
   }
 
   private drawBalloon(): void {
     this.ballGfx.clear();
     const r = this.ballR;
+    const x = this.ballX;
+    const y = this.ballY;
 
     // String
     this.ballGfx.lineStyle(1.5, 0xaaaaaa, 0.8);
-    this.ballGfx.lineBetween(this.ballX, this.ballY + r, this.ballX + Math.sin(this.ballVX * 0.05) * 8, this.ballY + r * 2.2);
+    this.ballGfx.lineBetween(
+      x, y + r,
+      x + Math.sin(this.ballVX * 0.05) * 8,
+      y + r * 2.2
+    );
 
-    // Shadow
-    this.ballGfx.fillStyle(0x000000, 0.15);
-    this.ballGfx.fillEllipse(this.ballX, this.ballY + r + 4, r * 1.5, r * 0.4);
+    // Drop shadow
+    this.ballGfx.fillStyle(0x000000, 0.12);
+    this.ballGfx.fillEllipse(x, y + r + 4, r * 1.5, r * 0.4);
 
     // Balloon body
-    this.ballGfx.fillStyle(0xff69b4);
-    this.ballGfx.fillEllipse(this.ballX, this.ballY, r * 2, r * 2.4);
+    this.ballGfx.fillStyle(COLORS.PINK);
+    this.ballGfx.fillEllipse(x, y, r * 2, r * 2.4);
 
-    // Highlight
+    // Sheen
     this.ballGfx.fillStyle(0xffb3d1, 0.75);
-    this.ballGfx.fillEllipse(this.ballX - r * 0.3, this.ballY - r * 0.35, r * 0.7, r * 0.9);
+    this.ballGfx.fillEllipse(x - r * 0.3, y - r * 0.35, r * 0.7, r * 0.9);
     this.ballGfx.fillStyle(0xffffff, 0.5);
-    this.ballGfx.fillEllipse(this.ballX - r * 0.25, this.ballY - r * 0.3, r * 0.3, r * 0.45);
+    this.ballGfx.fillEllipse(x - r * 0.25, y - r * 0.3, r * 0.3, r * 0.45);
 
     // Knot
     this.ballGfx.fillStyle(0xff1493);
     this.ballGfx.fillTriangle(
-      this.ballX - 4, this.ballY + r,
-      this.ballX + 4, this.ballY + r,
-      this.ballX, this.ballY + r * 1.35
+      x - 4, y + r,
+      x + 4, y + r,
+      x,     y + r * 1.35
     );
   }
 }
