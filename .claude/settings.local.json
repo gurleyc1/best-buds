@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:kenney.nl)",
+      "WebFetch(domain:opengameart.org)",
+      "WebFetch(domain:kenneynl.tumblr.com)"
+    ]
+  }
+}

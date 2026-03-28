@@ -5,6 +5,27 @@ export class PreloadScene extends Phaser.Scene {
   constructor() { super({ key: SCENE_KEYS.PRELOAD }); }
 
   preload(): void {
+    // --- Kenney RPG Urban Pack tiles (CC0) ---
+    this.load.image('kenney_grass',    'assets/tiles/kenney_grass.png');
+    this.load.image('kenney_grass2',   'assets/tiles/kenney_grass2.png');
+    this.load.image('kenney_road',     'assets/tiles/kenney_road.png');
+    this.load.image('kenney_sidewalk', 'assets/tiles/kenney_sidewalk.png');
+    this.load.image('kenney_path',     'assets/tiles/kenney_path.png');
+    this.load.image('kenney_building', 'assets/tiles/kenney_building.png');
+    this.load.image('kenney_building2','assets/tiles/kenney_building2.png');
+    this.load.image('kenney_roof',     'assets/tiles/kenney_roof.png');
+    this.load.image('kenney_roof2',    'assets/tiles/kenney_roof2.png');
+    // Full packed tilemap spritesheet (27x18 grid of 16px tiles, no spacing)
+    this.load.spritesheet('kenney_urban_tilemap', 'assets/tiles/kenney_urban_tilemap.png', {
+      frameWidth: 16, frameHeight: 16,
+    });
+
+    // --- Kenney Foliage Sprites (CC0, white silhouettes – tinted at runtime) ---
+    this.load.image('kenney_tree_round', 'assets/foliage/kenney_tree_round.png');
+    this.load.image('kenney_tree_alt',   'assets/foliage/kenney_tree_alt.png');
+    this.load.image('kenney_tree_pine',  'assets/foliage/kenney_tree_pine.png');
+    this.load.image('kenney_tree_bush',  'assets/foliage/kenney_tree_bush.png');
+
     // Loading bar
     const barBg = this.add.graphics();
     barBg.fillStyle(COLORS.BG_DARK);

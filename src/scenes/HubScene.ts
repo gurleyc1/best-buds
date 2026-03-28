@@ -56,42 +56,56 @@ export class HubScene extends Phaser.Scene {
   }
 
   private buildWorld(): void {
-    // Grass background
-    const grassGfx = this.add.graphics();
-    grassGfx.fillStyle(COLORS.GRASS);
-    grassGfx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
-
-    // Grass texture tiling
-    for (let tx = 0; tx < WORLD_SIZE; tx += 32) {
-      for (let ty = 0; ty < WORLD_SIZE; ty += 32) {
-        if (this.textures.exists('tile_grass')) {
-          this.add.image(tx + 16, ty + 16, 'tile_grass').setAlpha(0.5);
-        }
-      }
+    // Grass background — tile the Kenney grass tile (16x16 scaled 2x = 32px)
+    const useKenneyGrass = this.textures.exists('kenney_grass');
+    if (useKenneyGrass) {
+      // TileSprite covers the entire world with the 16px Kenney grass tile
+      this.add.tileSprite(WORLD_SIZE / 2, WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE, 'kenney_grass')
+        .setTileScale(2, 2);
+    } else {
+      const grassGfx = this.add.graphics();
+      grassGfx.fillStyle(COLORS.GRASS);
+      grassGfx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
     }
 
-    // Roads
+    // Roads — draw base road colour then overlay Kenney road tile
     const roadGfx = this.add.graphics();
-    // Horizontal road
     roadGfx.fillStyle(COLORS.ROAD);
+    // Horizontal road
     roadGfx.fillRect(0, 580, WORLD_SIZE, 60);
     // Vertical road
     roadGfx.fillRect(80, 0, 60, WORLD_SIZE);
 
-    // Sidewalks
-    roadGfx.fillStyle(COLORS.SIDEWALK);
-    roadGfx.fillRect(0, 574, WORLD_SIZE, 6);
-    roadGfx.fillRect(0, 640, WORLD_SIZE, 6);
-    roadGfx.fillRect(74, 0, 6, WORLD_SIZE);
-    roadGfx.fillRect(140, 0, 6, WORLD_SIZE);
+    if (this.textures.exists('kenney_road')) {
+      // Tile the Kenney road tile over road areas (2x scale = 32px)
+      this.add.tileSprite(WORLD_SIZE / 2, 610, WORLD_SIZE, 60, 'kenney_road').setTileScale(2, 2);
+      this.add.tileSprite(110, WORLD_SIZE / 2, 60, WORLD_SIZE, 'kenney_road').setTileScale(2, 2);
+    }
 
-    // Road markings
-    roadGfx.fillStyle(COLORS.YELLOW, 0.6);
+    // Sidewalks
+    const swGfx = this.add.graphics();
+    swGfx.fillStyle(COLORS.SIDEWALK);
+    swGfx.fillRect(0, 574, WORLD_SIZE, 6);
+    swGfx.fillRect(0, 640, WORLD_SIZE, 6);
+    swGfx.fillRect(74, 0, 6, WORLD_SIZE);
+    swGfx.fillRect(140, 0, 6, WORLD_SIZE);
+
+    if (this.textures.exists('kenney_sidewalk')) {
+      // Thin tileSprites over sidewalk strips
+      this.add.tileSprite(WORLD_SIZE / 2, 577, WORLD_SIZE, 6, 'kenney_sidewalk').setTileScale(2, 2);
+      this.add.tileSprite(WORLD_SIZE / 2, 643, WORLD_SIZE, 6, 'kenney_sidewalk').setTileScale(2, 2);
+      this.add.tileSprite(77, WORLD_SIZE / 2, 6, WORLD_SIZE, 'kenney_sidewalk').setTileScale(2, 2);
+      this.add.tileSprite(143, WORLD_SIZE / 2, 6, WORLD_SIZE, 'kenney_sidewalk').setTileScale(2, 2);
+    }
+
+    // Road markings (dashed yellow centre lines)
+    const markGfx = this.add.graphics();
+    markGfx.fillStyle(COLORS.YELLOW, 0.6);
     for (let rx = 0; rx < WORLD_SIZE; rx += 60) {
-      roadGfx.fillRect(rx, 607, 36, 5);
+      markGfx.fillRect(rx, 607, 36, 5);
     }
     for (let ry = 0; ry < WORLD_SIZE; ry += 60) {
-      roadGfx.fillRect(107, ry, 5, 36);
+      markGfx.fillRect(107, ry, 5, 36);
     }
 
     // Buildings / Locations
@@ -101,7 +115,7 @@ export class HubScene extends Phaser.Scene {
     this.buildPlayground();
     this.buildPark();
 
-    // Trees scattered
+    // Trees scattered — use Kenney foliage sprites (white silhouettes, tinted green)
     const treePositions = [
       [200, 450], [260, 480], [180, 530],
       [700, 200], [750, 220], [800, 180],
@@ -111,8 +125,17 @@ export class HubScene extends Phaser.Scene {
       [600, 900], [650, 920],
       [1100, 700], [1150, 730],
     ];
-    treePositions.forEach(([tx, ty]) => {
-      if (this.textures.exists('tree')) {
+    const kenneyTreeKeys = ['kenney_tree_round', 'kenney_tree_alt', 'kenney_tree_pine', 'kenney_tree_bush'];
+    const availableKenneyTrees = kenneyTreeKeys.filter(k => this.textures.exists(k));
+
+    treePositions.forEach(([tx, ty], idx) => {
+      if (availableKenneyTrees.length > 0) {
+        const key = availableKenneyTrees[idx % availableKenneyTrees.length];
+        // Foliage sprites are 1024x1024 vector silhouettes — scale down to ~32px and tint green
+        const treeImg = this.add.image(tx, ty, key);
+        treeImg.setScale(0.03);
+        treeImg.setTint(0x4caf50);
+      } else if (this.textures.exists('tree')) {
         this.add.image(tx, ty, 'tree');
       } else {
         const tg = this.add.graphics();
@@ -126,7 +149,20 @@ export class HubScene extends Phaser.Scene {
 
   private buildHomeArea(): void {
     const loc = this.LOCATIONS[0];
-    if (this.textures.exists('house')) {
+    const useKenney = this.textures.exists('kenney_building') && this.textures.exists('kenney_roof');
+    if (useKenney) {
+      // Build a simple house from Kenney tiles (2x scale = 32px each)
+      // Roof row (3 tiles wide)
+      for (let col = -1; col <= 1; col++) {
+        this.add.image(loc.x + col * 32, loc.y - 32, 'kenney_roof').setScale(2).setTint(0xc0392b);
+      }
+      // Wall rows (3 wide x 2 tall)
+      for (let row = 0; row < 2; row++) {
+        for (let col = -1; col <= 1; col++) {
+          this.add.image(loc.x + col * 32, loc.y + row * 32, 'kenney_building').setScale(2);
+        }
+      }
+    } else if (this.textures.exists('house')) {
       this.add.image(loc.x, loc.y, 'house');
     } else {
       const g = this.add.graphics();
