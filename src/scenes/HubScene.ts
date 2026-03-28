@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SCENE_KEYS, COLORS, GAME_WIDTH, GAME_HEIGHT, WORLD_SIZE, WALK_SPEED, BIKE_SPEED, CAR_SPEED } from '../config';
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT, WORLD_SIZE, WALK_SPEED, CAR_SPEED } from '../config';
 import { CharacterRenderer } from '../systems/CharacterRenderer';
 import { SaveManager } from '../systems/SaveManager';
 import { SceneTransition } from '../systems/SceneTransition';
@@ -21,22 +21,24 @@ export class HubScene extends Phaser.Scene {
   private carSprite!: Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
-  private playerX = 320;
-  private playerY = 350;
   private playerFacingRight = true;
   private transportMode: TransportMode = 'walk';
-  private transportBtns: { walk: Phaser.GameObjects.Text; bike: Phaser.GameObjects.Text; car: Phaser.GameObjects.Text } | null = null;
+  private transportBtns: { walk: Phaser.GameObjects.Text; car: Phaser.GameObjects.Text } | null = null;
   private dialogueBubble: Phaser.GameObjects.Container | null = null;
   private transitioning = false;
   private touchTarget: { x: number; y: number } | null = null;
   private triggerZones: Array<{ zone: Phaser.Geom.Rectangle; data: LocationData; triggered: boolean }> = [];
 
+  // Player starts at home position
+  private readonly START_X = 160;
+  private readonly START_Y = 260;
+
   private readonly LOCATIONS: LocationData[] = [
-    { x: 320, y: 300, label: 'Home', dialogue: "Let's build a marble run!", scene: SCENE_KEYS.MARBLE_RUN, triggerW: 72, triggerH: 64 },
-    { x: 900, y: 250, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 100, triggerH: 80 },
-    { x: 900, y: 750, label: 'Soccer Field', dialogue: 'Penalty kicks!', scene: SCENE_KEYS.SOCCER, triggerW: 100, triggerH: 80 },
-    { x: 350, y: 750, label: 'Playground', dialogue: 'Keepy uppy!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 80, triggerH: 80 },
-    { x: 640, y: 500, label: 'Park', dialogue: "Let's explore!", scene: undefined, triggerW: 120, triggerH: 100 },
+    { x: 160, y: 160, label: 'Home', dialogue: "Let's build a marble run!", scene: SCENE_KEYS.MARBLE_RUN, triggerW: 40, triggerH: 60 },
+    { x: 960, y: 200, label: 'Park', dialogue: "Let's explore!", scene: undefined, triggerW: 40, triggerH: 60 },
+    { x: 960, y: 600, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 40, triggerH: 60 },
+    { x: 200, y: 900, label: 'Soccer Field', dialogue: 'Penalty kicks!', scene: SCENE_KEYS.SOCCER, triggerW: 40, triggerH: 60 },
+    { x: 700, y: 900, label: 'Playground', dialogue: 'Keepy uppy!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 40, triggerH: 60 },
   ];
 
   constructor() { super({ key: SCENE_KEYS.HUB }); }
@@ -55,203 +57,213 @@ export class HubScene extends Phaser.Scene {
     this.triggerZones.forEach(tz => { tz.triggered = false; });
   }
 
+  // ─── World Building ───────────────────────────────────────────────────────
+
   private buildWorld(): void {
-    // Grass background — tile the Kenney grass tile (16x16 scaled 2x = 32px)
-    const useKenneyGrass = this.textures.exists('kenney_grass');
-    if (useKenneyGrass) {
-      // TileSprite covers the entire world with the 16px Kenney grass tile
-      this.add.tileSprite(WORLD_SIZE / 2, WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE, 'kenney_grass')
-        .setTileScale(2, 2);
-    } else {
-      const grassGfx = this.add.graphics();
-      grassGfx.fillStyle(COLORS.GRASS);
-      grassGfx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
-    }
+    const g = this.add.graphics();
 
-    // Roads — draw base road colour then overlay Kenney road tile
-    const roadGfx = this.add.graphics();
-    roadGfx.fillStyle(COLORS.ROAD);
-    // Horizontal road
-    roadGfx.fillRect(0, 580, WORLD_SIZE, 60);
-    // Vertical road
-    roadGfx.fillRect(80, 0, 60, WORLD_SIZE);
+    // 1. Grass base — full world
+    g.fillStyle(0x5a9e4a);
+    g.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
-    if (this.textures.exists('kenney_road')) {
-      // Tile the Kenney road tile over road areas (2x scale = 32px)
-      this.add.tileSprite(WORLD_SIZE / 2, 610, WORLD_SIZE, 60, 'kenney_road').setTileScale(2, 2);
-      this.add.tileSprite(110, WORLD_SIZE / 2, 60, WORLD_SIZE, 'kenney_road').setTileScale(2, 2);
-    }
+    // 2. Roads — horizontal and vertical
+    g.fillStyle(0x6b7280);
+    // Horizontal road: y=580 to y=620
+    g.fillRect(0, 580, WORLD_SIZE, 40);
+    // Vertical road: x=580 to x=620
+    g.fillRect(580, 0, 40, WORLD_SIZE);
 
-    // Sidewalks
-    const swGfx = this.add.graphics();
-    swGfx.fillStyle(COLORS.SIDEWALK);
-    swGfx.fillRect(0, 574, WORLD_SIZE, 6);
-    swGfx.fillRect(0, 640, WORLD_SIZE, 6);
-    swGfx.fillRect(74, 0, 6, WORLD_SIZE);
-    swGfx.fillRect(140, 0, 6, WORLD_SIZE);
+    // 3. Sidewalks — 16px strips along both sides of each road
+    g.fillStyle(0xd4c5a0);
+    // Horizontal road sidewalks
+    g.fillRect(0, 564, WORLD_SIZE, 16); // top side
+    g.fillRect(0, 620, WORLD_SIZE, 16); // bottom side
+    // Vertical road sidewalks
+    g.fillRect(564, 0, 16, WORLD_SIZE); // left side
+    g.fillRect(620, 0, 16, WORLD_SIZE); // right side
 
-    if (this.textures.exists('kenney_sidewalk')) {
-      // Thin tileSprites over sidewalk strips
-      this.add.tileSprite(WORLD_SIZE / 2, 577, WORLD_SIZE, 6, 'kenney_sidewalk').setTileScale(2, 2);
-      this.add.tileSprite(WORLD_SIZE / 2, 643, WORLD_SIZE, 6, 'kenney_sidewalk').setTileScale(2, 2);
-      this.add.tileSprite(77, WORLD_SIZE / 2, 6, WORLD_SIZE, 'kenney_sidewalk').setTileScale(2, 2);
-      this.add.tileSprite(143, WORLD_SIZE / 2, 6, WORLD_SIZE, 'kenney_sidewalk').setTileScale(2, 2);
-    }
-
-    // Road markings (dashed yellow centre lines)
-    const markGfx = this.add.graphics();
-    markGfx.fillStyle(COLORS.YELLOW, 0.6);
+    // 4. Road markings — dashed yellow center lines
+    g.fillStyle(0xfbbf24, 0.6);
+    // Horizontal road center dashes
     for (let rx = 0; rx < WORLD_SIZE; rx += 60) {
-      markGfx.fillRect(rx, 607, 36, 5);
+      g.fillRect(rx, 598, 36, 5);
     }
+    // Vertical road center dashes
     for (let ry = 0; ry < WORLD_SIZE; ry += 60) {
-      markGfx.fillRect(107, ry, 5, 36);
+      g.fillRect(598, ry, 5, 36);
     }
 
-    // Buildings / Locations
-    this.buildHomeArea();
-    this.buildTennisCourt();
-    this.buildSoccerField();
-    this.buildPlayground();
-    this.buildPark();
+    // 5. Location zones
+    this.buildHomeArea(g);
+    this.buildPark(g);
+    this.buildTennisCourt(g);
+    this.buildSoccerField(g);
+    this.buildPlayground(g);
 
-    // Trees scattered — use Kenney foliage sprites (white silhouettes, tinted green)
-    const treePositions = [
-      [200, 450], [260, 480], [180, 530],
-      [700, 200], [750, 220], [800, 180],
-      [500, 700], [540, 730], [470, 760],
-      [200, 800], [240, 850],
-      [1000, 400], [1050, 420], [1100, 380],
-      [600, 900], [650, 920],
-      [1100, 700], [1150, 730],
+    // 6. Trees — scattered in grass areas, away from roads and buildings
+    this.drawTrees();
+  }
+
+  private buildHomeArea(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[0]; // x=160, y=160
+
+    // Yard (beige ground)
+    g.fillStyle(0xf5e6d0);
+    g.fillRect(loc.x - 80, loc.y - 80, 160, 160);
+
+    // House walls
+    g.fillStyle(0xf5e6d0);
+    g.fillRect(loc.x - 50, loc.y - 40, 100, 70);
+
+    // Roof — red triangle above walls
+    g.fillStyle(0xcc4444);
+    g.fillTriangle(
+      loc.x - 58, loc.y - 40,
+      loc.x + 58, loc.y - 40,
+      loc.x, loc.y - 85
+    );
+
+    // Door
+    g.fillStyle(0x8b5e3c);
+    g.fillRect(loc.x - 12, loc.y + 5, 24, 25);
+
+    // Windows
+    g.fillStyle(0x87ceeb);
+    g.fillRect(loc.x - 40, loc.y - 25, 20, 18);
+    g.fillRect(loc.x + 20, loc.y - 25, 20, 18);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
+  private buildPark(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[1]; // x=960, y=200
+
+    // Open green park area
+    g.fillStyle(0x4aaa3a);
+    g.fillRect(loc.x - 130, loc.y - 130, 260, 260);
+
+    // Winding path
+    g.fillStyle(0xd4c5a0, 0.7);
+    g.fillRect(loc.x - 130, loc.y - 10, 260, 20);
+    g.fillRect(loc.x - 10, loc.y - 130, 20, 260);
+
+    // Bench
+    g.fillStyle(0x795548);
+    g.fillRect(loc.x + 40, loc.y - 50, 30, 8);
+    g.fillRect(loc.x + 42, loc.y - 42, 6, 10);
+    g.fillRect(loc.x + 62, loc.y - 42, 6, 10);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
+  private buildTennisCourt(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[2]; // x=960, y=600
+
+    // Court surface
+    g.fillStyle(0x2d7a3a);
+    g.fillRect(loc.x - 100, loc.y - 60, 200, 120);
+
+    // Court lines
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeRect(loc.x - 90, loc.y - 50, 180, 100);
+    // Center line
+    g.lineBetween(loc.x, loc.y - 50, loc.x, loc.y + 50);
+    // Service boxes
+    g.lineBetween(loc.x - 90, loc.y, loc.x + 90, loc.y);
+    // Net
+    g.lineStyle(3, 0xeeeeee, 1);
+    g.lineBetween(loc.x, loc.y - 50, loc.x, loc.y + 50);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
+  private buildSoccerField(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[3]; // x=200, y=900
+
+    // Field surface
+    g.fillStyle(0x3a8a3a);
+    g.fillRect(loc.x - 130, loc.y - 90, 260, 180);
+
+    // Field markings
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeRect(loc.x - 120, loc.y - 80, 240, 160);
+    g.strokeCircle(loc.x, loc.y, 35);
+    g.lineBetween(loc.x - 120, loc.y, loc.x + 120, loc.y);
+
+    // Goals
+    g.fillStyle(0xffffff, 0.8);
+    g.fillRect(loc.x - 25, loc.y - 90, 50, 10);
+    g.fillRect(loc.x - 25, loc.y + 80, 50, 10);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
+  private buildPlayground(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[4]; // x=700, y=900
+
+    // Rubber surface
+    g.fillStyle(0xe8c84a);
+    g.fillRect(loc.x - 80, loc.y - 60, 160, 120);
+
+    // Slide — pole and ramp
+    g.fillStyle(0xe74c3c);
+    g.fillRect(loc.x - 50, loc.y - 50, 8, 55);
+    g.fillRect(loc.x - 58, loc.y, 36, 6);
+
+    // Swing frame
+    g.fillStyle(0x607d8b);
+    g.fillRect(loc.x + 15, loc.y - 50, 6, 50);
+    g.fillRect(loc.x + 40, loc.y - 50, 6, 50);
+    g.lineStyle(2, 0x607d8b, 1);
+    g.lineBetween(loc.x + 15, loc.y - 50, loc.x + 46, loc.y - 50);
+
+    // Swing seat
+    g.fillStyle(0x795548);
+    g.fillRect(loc.x + 20, loc.y + 0, 20, 5);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
+  private drawTrees(): void {
+    // Scattered trees in grass areas — away from roads (x=564-636, y=564-636) and buildings
+    const treePositions: [number, number][] = [
+      // Top-left quadrant (avoid home at 80-240, 80-240)
+      [380, 120], [420, 200], [300, 350], [450, 400], [100, 400],
+      // Top-right quadrant (around park at 830-1090, 70-330)
+      [800, 120], [1100, 100], [1150, 280], [1100, 420], [820, 430],
+      // Bottom-left quadrant (around soccer at 70-330, 810-990)
+      [380, 780], [420, 1050], [100, 1050], [100, 750],
+      // Bottom-right quadrant
+      [850, 780], [1050, 800], [1150, 900], [850, 1050], [1100, 1050],
+      // Along edges
+      [700, 100], [700, 400],
     ];
-    const kenneyTreeKeys = ['kenney_tree_round', 'kenney_tree_alt', 'kenney_tree_pine', 'kenney_tree_bush'];
-    const availableKenneyTrees = kenneyTreeKeys.filter(k => this.textures.exists(k));
 
-    treePositions.forEach(([tx, ty], idx) => {
-      if (availableKenneyTrees.length > 0) {
-        const key = availableKenneyTrees[idx % availableKenneyTrees.length];
-        // Foliage sprites are 1024x1024 vector silhouettes — scale down to ~32px and tint green
-        const treeImg = this.add.image(tx, ty, key);
-        treeImg.setScale(0.03);
-        treeImg.setTint(0x4caf50);
-      } else if (this.textures.exists('tree')) {
-        this.add.image(tx, ty, 'tree');
-      } else {
-        const tg = this.add.graphics();
-        tg.fillStyle(0x795548);
-        tg.fillRect(tx - 4, ty - 14, 8, 14);
-        tg.fillStyle(0x4caf50);
-        tg.fillCircle(tx, ty - 18, 14);
-      }
+    treePositions.forEach(([tx, ty]) => {
+      this.drawTree(tx, ty);
     });
   }
 
-  private buildHomeArea(): void {
-    const loc = this.LOCATIONS[0];
-    const useKenney = this.textures.exists('kenney_building') && this.textures.exists('kenney_roof');
-    if (useKenney) {
-      // Build a simple house from Kenney tiles (2x scale = 32px each)
-      // Roof row (3 tiles wide)
-      for (let col = -1; col <= 1; col++) {
-        this.add.image(loc.x + col * 32, loc.y - 32, 'kenney_roof').setScale(2).setTint(0xc0392b);
-      }
-      // Wall rows (3 wide x 2 tall)
-      for (let row = 0; row < 2; row++) {
-        for (let col = -1; col <= 1; col++) {
-          this.add.image(loc.x + col * 32, loc.y + row * 32, 'kenney_building').setScale(2);
-        }
-      }
-    } else if (this.textures.exists('house')) {
-      this.add.image(loc.x, loc.y, 'house');
-    } else {
-      const g = this.add.graphics();
-      g.fillStyle(0xf5deb3);
-      g.fillRect(loc.x - 36, loc.y - 22, 72, 44);
-      g.fillStyle(0xc0392b);
-      g.fillTriangle(loc.x - 40, loc.y - 22, loc.x + 40, loc.y - 22, loc.x, loc.y - 52);
-    }
-    this.addLocationLabel(loc);
-    this.addTriggerZone(loc);
-  }
-
-  private buildTennisCourt(): void {
-    const loc = this.LOCATIONS[1];
-    if (this.textures.exists('tennis_court')) {
-      this.add.image(loc.x, loc.y, 'tennis_court').setScale(0.7);
-    } else {
-      const g = this.add.graphics();
-      g.fillStyle(0x2e7d32);
-      g.fillRect(loc.x - 84, loc.y - 56, 168, 112);
-      g.lineStyle(2, 0xffffff, 1);
-      g.strokeRect(loc.x - 84, loc.y - 56, 168, 112);
-      g.lineBetween(loc.x, loc.y - 56, loc.x, loc.y + 56);
-    }
-    this.addLocationLabel(loc);
-    this.addTriggerZone(loc);
-  }
-
-  private buildSoccerField(): void {
-    const loc = this.LOCATIONS[2];
+  private drawTree(tx: number, ty: number): void {
     const g = this.add.graphics();
-    g.fillStyle(0x388e3c);
-    g.fillRect(loc.x - 100, loc.y - 80, 200, 160);
-    g.lineStyle(2, 0xffffff, 1);
-    g.strokeRect(loc.x - 90, loc.y - 70, 180, 140);
-    g.strokeCircle(loc.x, loc.y, 30);
-    g.lineBetween(loc.x - 90, loc.y, loc.x + 90, loc.y);
-    // Goals
-    g.fillStyle(0xffffff, 0.8);
-    g.fillRect(loc.x - 20, loc.y - 80, 40, 10);
-    g.fillRect(loc.x - 20, loc.y + 70, 40, 10);
-    this.addLocationLabel(loc);
-    this.addTriggerZone(loc);
-  }
-
-  private buildPlayground(): void {
-    const loc = this.LOCATIONS[3];
-    const g = this.add.graphics();
-    // Rubber surface
-    g.fillStyle(0xf39c12, 0.7);
-    g.fillRect(loc.x - 60, loc.y - 50, 120, 100);
-    // Slide
-    g.fillStyle(0xe74c3c);
-    g.fillRect(loc.x - 40, loc.y - 40, 8, 50);
-    g.fillRect(loc.x - 48, loc.y + 5, 30, 6);
-    // Swings (poles)
-    g.fillStyle(0x607d8b);
-    g.fillRect(loc.x + 10, loc.y - 40, 6, 45);
-    g.fillRect(loc.x + 30, loc.y - 40, 6, 45);
-    g.lineStyle(2, 0x607d8b, 1);
-    g.lineBetween(loc.x + 10, loc.y - 40, loc.x + 36, loc.y - 40);
-    // Swing seats
-    g.fillStyle(0x795548);
-    g.fillRect(loc.x + 15, loc.y + 5, 18, 4);
-    this.addLocationLabel(loc);
-    this.addTriggerZone(loc);
-  }
-
-  private buildPark(): void {
-    const loc = this.LOCATIONS[4];
-    const g = this.add.graphics();
-    // Open lawn
-    g.fillStyle(0x66bb6a, 0.4);
-    g.fillRect(loc.x - 100, loc.y - 100, 200, 200);
-    // Path
-    g.fillStyle(COLORS.SIDEWALK, 0.6);
-    g.fillRect(loc.x - 100, loc.y - 8, 200, 16);
-    g.fillRect(loc.x - 8, loc.y - 100, 16, 200);
-    // Bench
-    g.fillStyle(0x795548);
-    g.fillRect(loc.x + 40, loc.y - 30, 30, 8);
-    g.fillRect(loc.x + 42, loc.y - 22, 6, 10);
-    g.fillRect(loc.x + 62, loc.y - 22, 6, 10);
-    this.addLocationLabel(loc);
-    this.addTriggerZone(loc);
+    // Trunk
+    g.fillStyle(0x6b4226);
+    g.fillRect(tx - 4, ty + 6, 8, 12);
+    // Dark green canopy base circle
+    g.fillStyle(0x2d6a1f);
+    g.fillCircle(tx, ty, 14);
+    // Lighter highlight circle (offset -2, -3)
+    g.fillStyle(0x4a9a2a);
+    g.fillCircle(tx - 2, ty - 3, 10);
   }
 
   private addLocationLabel(loc: LocationData): void {
-    this.add.text(loc.x, loc.y - (loc.triggerH / 2) - 16, loc.label, {
+    this.add.text(loc.x, loc.y - (loc.triggerH / 2) - 70, loc.label, {
       fontSize: '14px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 3,
       backgroundColor: '#00000066', padding: { x: 6, y: 2 },
@@ -266,38 +278,51 @@ export class HubScene extends Phaser.Scene {
       30
     );
     this.triggerZones.push({ zone: rect, data: loc, triggered: false });
-
-    // Debug visual (removed in production)
-    // const debugG = this.add.graphics();
-    // debugG.lineStyle(1, 0xff0000, 0.5);
-    // debugG.strokeRect(rect.x, rect.y, rect.width, rect.height);
   }
+
+  // ─── Player Setup ─────────────────────────────────────────────────────────
 
   private setupPlayer(): void {
     const state = SaveManager.load();
     const dadConfig = state.dadConfig;
     const lillianConfig = state.lillianConfig;
 
-    this.playerContainer = CharacterRenderer.create(this, this.playerX, this.playerY, dadConfig, 1.5);
-    this.companionContainer = CharacterRenderer.create(this, this.playerX - 40, this.playerY, lillianConfig, 1.5);
+    this.playerContainer = CharacterRenderer.create(this, this.START_X, this.START_Y, dadConfig, 1.5);
+    this.companionContainer = CharacterRenderer.create(this, this.START_X - 40, this.START_Y, lillianConfig, 1.5);
 
-    // Car sprite (hidden by default)
-    if (this.textures.exists('car')) {
-      this.carSprite = this.add.image(this.playerX, this.playerY, 'car');
-    } else {
-      const carG = this.add.graphics();
-      carG.fillStyle(0xe74c3c);
-      carG.fillRoundedRect(-24, -14, 48, 28, 6);
-      this.carSprite = carG as unknown as Phaser.GameObjects.Image;
-    }
+    // Enable arcade physics on the player container so world bounds are respected
+    this.physics.add.existing(this.playerContainer);
+    const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
+    body.setCollideWorldBounds(true);
+
+    // Car sprite — drawn with graphics as fallback (no Kenney asset needed)
+    const carG = this.add.graphics();
+    carG.fillStyle(0xe74c3c);
+    carG.fillRoundedRect(-28, -16, 56, 32, 7);
+    carG.fillStyle(0x87ceeb, 0.8);
+    carG.fillRect(-20, -14, 16, 12);
+    carG.fillRect(4, -14, 16, 12);
+    carG.fillStyle(0x222222);
+    carG.fillCircle(-18, 16, 6);
+    carG.fillCircle(18, 16, 6);
+    // Capture as texture so we can use it as an Image with setVisible
+    carG.setVisible(false);
+    // Use a simple graphics object instead of image; store reference differently
+    this.carSprite = carG as unknown as Phaser.GameObjects.Image;
+    this.carSprite.setPosition(this.START_X, this.START_Y);
     this.carSprite.setVisible(false);
   }
 
+  // ─── Camera ───────────────────────────────────────────────────────────────
+
   private setupCamera(): void {
+    this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
     this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
     this.cameras.main.startFollow(this.playerContainer, true, 0.1, 0.1);
     this.cameras.main.setZoom(1);
   }
+
+  // ─── Input ────────────────────────────────────────────────────────────────
 
   private setupInput(): void {
     if (this.input.keyboard) {
@@ -309,19 +334,15 @@ export class HubScene extends Phaser.Scene {
         right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       };
 
-      // Transport toggles
-      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B).on('down', () => {
-        this.setTransport(this.transportMode === 'bike' ? 'walk' : 'bike');
-      });
+      // Car toggle (C key)
       this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C).on('down', () => {
         this.setTransport(this.transportMode === 'car' ? 'walk' : 'car');
       });
     }
 
-    // Touch input
+    // Touch / click input
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      // Don't process if touching UI area (bottom 80px)
-      if (ptr.y > GAME_HEIGHT - 80) return;
+      if (ptr.y > GAME_HEIGHT - 80) return; // ignore UI strip
       const worldPt = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
       this.touchTarget = { x: worldPt.x, y: worldPt.y };
     });
@@ -334,27 +355,22 @@ export class HubScene extends Phaser.Scene {
     this.input.on('pointerup', () => { this.touchTarget = null; });
   }
 
+  // ─── Transport UI ─────────────────────────────────────────────────────────
+
   private setupTransportUI(): void {
-    // Anchored to camera — we'll update positions in update()
-    const walkBtn = this.add.text(0, 0, '\uD83D\uDEB6', {
-      fontSize: '22px', backgroundColor: '#2c3e50', padding: { x: 8, y: 4 },
+    const walkBtn = this.add.text(0, 0, '\uD83D\uDEB6 Walk', {
+      fontSize: '18px', backgroundColor: '#2c3e50', padding: { x: 10, y: 6 },
     }).setScrollFactor(0).setDepth(200).setInteractive({ useHandCursor: true });
-    walkBtn.setPosition(GAME_WIDTH - 150, GAME_HEIGHT - 60);
+    walkBtn.setPosition(GAME_WIDTH - 180, GAME_HEIGHT - 60);
     walkBtn.on('pointerdown', () => this.setTransport('walk'));
 
-    const bikeBtn = this.add.text(0, 0, '\uD83D\uDEB4', {
-      fontSize: '22px', backgroundColor: '#2c3e50', padding: { x: 8, y: 4 },
+    const carBtn = this.add.text(0, 0, '\uD83D\uDE97 Car', {
+      fontSize: '18px', backgroundColor: '#2c3e50', padding: { x: 10, y: 6 },
     }).setScrollFactor(0).setDepth(200).setInteractive({ useHandCursor: true });
-    bikeBtn.setPosition(GAME_WIDTH - 104, GAME_HEIGHT - 60);
-    bikeBtn.on('pointerdown', () => this.setTransport('bike'));
-
-    const carBtn = this.add.text(0, 0, '\uD83D\uDE97', {
-      fontSize: '22px', backgroundColor: '#2c3e50', padding: { x: 8, y: 4 },
-    }).setScrollFactor(0).setDepth(200).setInteractive({ useHandCursor: true });
-    carBtn.setPosition(GAME_WIDTH - 58, GAME_HEIGHT - 60);
+    carBtn.setPosition(GAME_WIDTH - 90, GAME_HEIGHT - 60);
     carBtn.on('pointerdown', () => this.setTransport('car'));
 
-    this.transportBtns = { walk: walkBtn, bike: bikeBtn, car: carBtn };
+    this.transportBtns = { walk: walkBtn, car: carBtn };
     this.updateTransportUI();
   }
 
@@ -368,21 +384,23 @@ export class HubScene extends Phaser.Scene {
 
   private updateTransportUI(): void {
     if (!this.transportBtns) return;
-    const { walk, bike, car } = this.transportBtns;
-    [walk, bike, car].forEach(btn => {
+    const { walk, car } = this.transportBtns;
+    [walk, car].forEach(btn => {
       btn.setBackgroundColor('#2c3e50');
       btn.setAlpha(0.7);
     });
-    const selected = this.transportMode === 'walk' ? walk : this.transportMode === 'bike' ? bike : car;
+    const selected = this.transportMode === 'car' ? car : walk;
     selected.setBackgroundColor('#3498db');
     selected.setAlpha(1);
   }
+
+  // ─── Update Loop ──────────────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
     if (this.transitioning) return;
 
     const dt = delta / 1000;
-    const speed = this.transportMode === 'walk' ? WALK_SPEED : this.transportMode === 'bike' ? BIKE_SPEED : CAR_SPEED;
+    const speed = this.transportMode === 'car' ? CAR_SPEED : WALK_SPEED;
 
     let dx = 0;
     let dy = 0;
@@ -395,11 +413,14 @@ export class HubScene extends Phaser.Scene {
     }
 
     // Touch movement
+    const px = this.playerContainer.x;
+    const py = this.playerContainer.y;
+
     if (this.touchTarget) {
-      const dist = Phaser.Math.Distance.Between(this.playerX, this.playerY, this.touchTarget.x, this.touchTarget.y);
+      const dist = Phaser.Math.Distance.Between(px, py, this.touchTarget.x, this.touchTarget.y);
       if (dist > 8) {
-        dx = (this.touchTarget.x - this.playerX) / dist;
-        dy = (this.touchTarget.y - this.playerY) / dist;
+        dx = (this.touchTarget.x - px) / dist;
+        dy = (this.touchTarget.y - py) / dist;
       } else {
         this.touchTarget = null;
       }
@@ -411,8 +432,11 @@ export class HubScene extends Phaser.Scene {
       dy *= 0.707;
     }
 
-    this.playerX = Phaser.Math.Clamp(this.playerX + dx * speed * dt, 20, WORLD_SIZE - 20);
-    this.playerY = Phaser.Math.Clamp(this.playerY + dy * speed * dt, 20, WORLD_SIZE - 20);
+    // Apply velocity via physics body so world bounds are enforced
+    const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
+    if (body) {
+      body.setVelocity(dx * speed, dy * speed);
+    }
 
     // Face direction
     if (dx !== 0) {
@@ -420,46 +444,47 @@ export class HubScene extends Phaser.Scene {
       this.playerContainer.setScale(this.playerFacingRight ? 1 : -1, 1);
     }
 
-    // Update positions
+    // Sync car position to player
     if (this.transportMode === 'car') {
-      this.carSprite.setPosition(this.playerX, this.playerY);
+      this.carSprite.setPosition(this.playerContainer.x, this.playerContainer.y);
       if (dx !== 0) this.carSprite.setFlipX(!this.playerFacingRight);
-    } else {
-      this.playerContainer.setPosition(this.playerX, this.playerY);
     }
 
-    // Companion follows player
+    // Companion follows player with lag
     const cx = this.companionContainer.x;
     const cy = this.companionContainer.y;
-    const newCx = cx + (this.playerX - cx - (this.playerFacingRight ? -40 : 40)) * 0.1;
-    const newCy = cy + (this.playerY - cy + 5) * 0.1;
+    const offset = this.playerFacingRight ? -40 : 40;
+    const newCx = cx + (this.playerContainer.x - cx + offset) * 0.1;
+    const newCy = cy + (this.playerContainer.y - cy + 5) * 0.1;
     this.companionContainer.setPosition(newCx, newCy);
 
     // Check location triggers
-    if (!this.transitioning) {
-      this.checkTriggers();
-    }
+    this.checkTriggers();
 
-    // Update dialogue position
+    // Update floating dialogue position
     if (this.dialogueBubble) {
-      this.dialogueBubble.setPosition(this.playerX, this.playerY - 80);
+      this.dialogueBubble.setPosition(this.playerContainer.x, this.playerContainer.y - 80);
     }
   }
 
+  // ─── Triggers ─────────────────────────────────────────────────────────────
+
   private checkTriggers(): void {
+    const px = this.playerContainer.x;
+    const py = this.playerContainer.y;
+
     for (const trigger of this.triggerZones) {
       if (trigger.triggered) continue;
-
-      if (Phaser.Geom.Rectangle.Contains(trigger.zone, this.playerX, this.playerY)) {
+      if (Phaser.Geom.Rectangle.Contains(trigger.zone, px, py)) {
         trigger.triggered = true;
         this.showDialogue(trigger.data);
       }
     }
 
-    // Reset triggers when player leaves
+    // Reset trigger when player leaves zone and dialogue is gone
     for (const trigger of this.triggerZones) {
       if (trigger.triggered && this.dialogueBubble === null) {
-        if (!Phaser.Geom.Rectangle.Contains(trigger.zone, this.playerX, this.playerY)) {
+        if (!Phaser.Geom.Rectangle.Contains(trigger.zone, px, py)) {
           trigger.triggered = false;
         }
       }
@@ -472,7 +497,7 @@ export class HubScene extends Phaser.Scene {
       this.dialogueBubble = null;
     }
 
-    this.dialogueBubble = this.add.container(this.playerX, this.playerY - 80);
+    this.dialogueBubble = this.add.container(this.playerContainer.x, this.playerContainer.y - 80);
     this.dialogueBubble.setDepth(150);
 
     const bg = this.add.graphics();

@@ -282,24 +282,37 @@ export class SoccerScene extends BaseMiniGameScene {
     this.ballVX = (dx / dist) * speed;
     this.ballVY = (dy / dist) * speed;
 
-    // Goalie has a 300ms reaction delay after ball is kicked
+    // Goalie has a 200ms reaction delay after ball is kicked
     if (this.isPlayerShooting) {
       const shotTargetX = targetX;
-      this.time.delayedCall(300, () => {
+      this.time.delayedCall(200, () => {
         if (this.stepState !== 'kick') return;
         this.goalieMoving = true;
-        // Goalie can only cover 60% of goal width — add positional error
-        const reachRange = this.GOAL_WIDTH * 0.6;
-        const center = GAME_WIDTH / 2;
-        // Error increases if player has high score (goalie tires!)
-        const skill = 0.7 - (this.score1 / Math.max(1, this.kicksRemaining + this.score1)) * 0.3;
-        const errorOffset = (Math.random() - 0.5) * this.GOAL_WIDTH * (1 - skill);
+        // Goalie can only cover 70% of goal width — add positional error
+        const reachRange = this.GOAL_WIDTH * 0.7;
+        // Error is smaller now — goalie is sharper, corners still beatable (~45%)
+        const distFromCenter = Math.abs(shotTargetX - GAME_WIDTH / 2) / (this.GOAL_WIDTH / 2);
+        // Corner shots: ~55% save (45% success for player)
+        // Center shots: ~95% save (5% success for player)
+        const cornerMissChance = 0.45;
+        const errorScale = distFromCenter > 0.6
+          ? cornerMissChance          // corner — moderate error
+          : 0.05;                     // center — almost always saved
+        const errorOffset = (Math.random() - 0.5) * this.GOAL_WIDTH * errorScale;
         let goalieTarget = shotTargetX + errorOffset;
-        // Clamp to reachable range from current position
+        // Clamp to reachable range — goalie moves at 240px/s toward the ball
+        const travelTime = 0.35; // seconds of tween
+        const maxReach = 240 * travelTime;
         goalieTarget = Phaser.Math.Clamp(
           goalieTarget,
-          this.goalieX - reachRange / 2,
-          this.goalieX + reachRange / 2
+          this.goalieX - maxReach,
+          this.goalieX + maxReach
+        );
+        // Also clamp to 70% coverage window around the shot
+        goalieTarget = Phaser.Math.Clamp(
+          goalieTarget,
+          shotTargetX - reachRange / 2,
+          shotTargetX + reachRange / 2
         );
         goalieTarget = Phaser.Math.Clamp(goalieTarget, this.GOAL_LEFT + 10, this.GOAL_RIGHT - 10);
         this.goalieTargetX = goalieTarget;
