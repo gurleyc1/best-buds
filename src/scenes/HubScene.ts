@@ -28,6 +28,8 @@ export class HubScene extends Phaser.Scene {
   private transitioning = false;
   private touchTarget: { x: number; y: number } | null = null;
   private triggerZones: Array<{ zone: Phaser.Geom.Rectangle; data: LocationData; triggered: boolean }> = [];
+  private triggerCooldown = 0; // ms remaining before triggers are active
+  private readonly TRIGGER_COOLDOWN_MS = 3000;
 
   // Player starts at home position
   private readonly START_X = 160;
@@ -47,6 +49,7 @@ export class HubScene extends Phaser.Scene {
     SceneTransition.fadeIn(this, 400);
     this.transitioning = false;
     this.triggerZones = [];
+    this.triggerCooldown = this.TRIGGER_COOLDOWN_MS;
 
     this.buildWorld();
     this.setupPlayer();
@@ -55,6 +58,16 @@ export class HubScene extends Phaser.Scene {
     this.setupTransportUI();
 
     this.triggerZones.forEach(tz => { tz.triggered = false; });
+
+    // Hint text that fades out after the cooldown period
+    const cooldownHint = this.add.text(GAME_WIDTH / 2, 70, 'Walk to a location to play!', {
+      fontSize: '13px', color: '#ffffff',
+      backgroundColor: '#00000066', padding: { x: 8, y: 3 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({ targets: cooldownHint, alpha: 0, duration: 500, onComplete: () => cooldownHint.destroy() });
+    });
   }
 
   // ─── World Building ───────────────────────────────────────────────────────
@@ -459,8 +472,12 @@ export class HubScene extends Phaser.Scene {
     const newCy = cy + (this.playerContainer.y - cy + 5) * 0.1;
     this.companionContainer.setPosition(newCx, newCy);
 
-    // Check location triggers
-    this.checkTriggers();
+    // Check location triggers (skip during entry cooldown)
+    if (this.triggerCooldown <= 0) {
+      this.checkTriggers();
+    } else {
+      this.triggerCooldown -= delta;
+    }
 
     // Update floating dialogue position
     if (this.dialogueBubble) {

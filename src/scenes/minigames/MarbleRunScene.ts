@@ -306,19 +306,29 @@ export class MarbleRunScene extends BaseMiniGameScene {
         break;
       }
       case 'curve_ne': {
-        this.drawCurveArc(gfx, cx + h, cy - h, h - tube, tube, Math.PI * 0.5, Math.PI, true);
+        // Marble enters from top (N), exits right (E) — pivot at bottom-left corner
+        this.drawCurveArc(gfx, cx - h, cy + h, h - tube, tube, Math.PI * 1.5, Math.PI * 2, false);
         break;
       }
       case 'curve_nw': {
-        this.drawCurveArc(gfx, cx - h, cy - h, h - tube, tube, 0, Math.PI * 0.5, false);
+        // Marble enters from top (N), exits left (W) — pivot at bottom-right corner
+        this.drawCurveArc(gfx, cx + h, cy + h, h - tube, tube, Math.PI, Math.PI * 1.5, true);
         break;
       }
       case 'curve_se': {
-        this.drawCurveArc(gfx, cx + h, cy + h, h - tube, tube, Math.PI, Math.PI * 1.5, false);
+        // Marble enters from top (N), exits right (E) — same as curve_ne (gravity entry)
+        this.drawCurveArc(gfx, cx - h, cy + h, h - tube, tube, Math.PI * 1.5, Math.PI * 2, false);
+        // Add tint to distinguish from curve_ne
+        gfx.lineStyle(2, 0x0a3d6b, 1);
+        gfx.strokeRect(cx - h + 1, cy - h + 1, CELL - 2, CELL - 2);
         break;
       }
       case 'curve_sw': {
-        this.drawCurveArc(gfx, cx - h, cy + h, h - tube, tube, Math.PI * 1.5, Math.PI * 2, true);
+        // Marble enters from top (N), exits left (W) — same routing as curve_nw (gravity entry)
+        this.drawCurveArc(gfx, cx + h, cy + h, h - tube, tube, Math.PI, Math.PI * 1.5, true);
+        // Add tint to distinguish from curve_nw
+        gfx.lineStyle(2, 0x0a3d6b, 1);
+        gfx.strokeRect(cx - h + 1, cy - h + 1, CELL - 2, CELL - 2);
         break;
       }
       case 'funnel': {
@@ -522,24 +532,26 @@ export class MarbleRunScene extends BaseMiniGameScene {
 
       this.input.setDraggable(zone);
 
-      zone.on('dragstart', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+      zone.on('dragstart', (ptr: Phaser.Input.Pointer) => {
         this.draggingType = type;
         this.dragGhost.setVisible(true);
         this.dragGhostLabel.setVisible(true);
-        this.drawPiece(this.dragGhost, dragX, dragY, type);
-        this.dragGhostLabel.setPosition(dragX, dragY + 26);
+        this.drawPiece(this.dragGhost, ptr.x, ptr.y, type);
+        this.dragGhostLabel.setPosition(ptr.x, ptr.y + 26);
         this.dragGhostLabel.setText(PIECE_LABELS[type]);
       });
 
-      zone.on('drag', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-        this.drawPiece(this.dragGhost, dragX, dragY, type);
-        this.dragGhostLabel.setPosition(dragX, dragY + 26);
+      zone.on('drag', (ptr: Phaser.Input.Pointer) => {
+        const px = ptr.x;
+        const py = ptr.y;
+        this.drawPiece(this.dragGhost, px, py, type);
+        this.dragGhostLabel.setPosition(px, py + 26);
 
         this.snapHighlight.clear();
-        if (dragX >= GRID_X && dragX < GRID_X + GRID_COLS * CELL &&
-            dragY >= GRID_Y && dragY < GRID_Y + GRID_ROWS * CELL) {
-          const snapCol = Math.floor((dragX - GRID_X) / CELL);
-          const snapRow = Math.floor((dragY - GRID_Y) / CELL);
+        if (px >= GRID_X && px < GRID_X + GRID_COLS * CELL &&
+            py >= GRID_Y && py < GRID_Y + GRID_ROWS * CELL) {
+          const snapCol = Math.floor((px - GRID_X) / CELL);
+          const snapRow = Math.floor((py - GRID_Y) / CELL);
           this.snapHighlight.lineStyle(3, 0x00ff88, 0.9);
           this.snapHighlight.fillStyle(0x00ff88, 0.15);
           this.snapHighlight.fillRect(
@@ -551,16 +563,18 @@ export class MarbleRunScene extends BaseMiniGameScene {
         }
       });
 
-      zone.on('dragend', (_ptr: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+      zone.on('dragend', (ptr: Phaser.Input.Pointer) => {
+        const px = ptr.x;
+        const py = ptr.y;
         this.dragGhost.setVisible(false);
         this.dragGhostLabel.setVisible(false);
         this.snapHighlight.clear();
 
         if (this.buildMode && this.draggingType) {
-          if (dragX >= GRID_X && dragX < GRID_X + GRID_COLS * CELL &&
-              dragY >= GRID_Y && dragY < GRID_Y + GRID_ROWS * CELL) {
-            const snapCol = Math.floor((dragX - GRID_X) / CELL);
-            const snapRow = Math.floor((dragY - GRID_Y) / CELL);
+          if (px >= GRID_X && px < GRID_X + GRID_COLS * CELL &&
+              py >= GRID_Y && py < GRID_Y + GRID_ROWS * CELL) {
+            const snapCol = Math.floor((px - GRID_X) / CELL);
+            const snapRow = Math.floor((py - GRID_Y) / CELL);
             this.placePiece(this.draggingType, snapCol, snapRow);
           }
         }
