@@ -40,6 +40,12 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   private dadContainer!: Phaser.GameObjects.Container;
   private lillianContainer!: Phaser.GameObjects.Container;
 
+  // Keyboard keys
+  private keyLeft!: Phaser.Input.Keyboard.Key;
+  private keyRight!: Phaser.Input.Keyboard.Key;
+  private keyA!: Phaser.Input.Keyboard.Key;
+  private keyD!: Phaser.Input.Keyboard.Key;
+
   constructor() { super({ key: 'KeepyUppyScene' }); }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -209,6 +215,40 @@ export class KeepyUppyScene extends BaseMiniGameScene {
         this.hitBalloon(tapX);
       }
     });
+
+    // Keyboard: LEFT/A moves Dad toward balloon, RIGHT/D moves Lillian toward balloon
+    // SPACE tries to hit balloon with whichever character is closer
+    if (this.input.keyboard) {
+      this.keyLeft  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+      this.keyRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+      this.keyA     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.keyD     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+
+      this.input.keyboard.on('keydown-SPACE', () => {
+        if (!this.gameActive) return;
+        // Move the closer character under the balloon then try hit
+        const dadDist = Math.abs(this.ballX - this.dadX);
+        const lilDist = Math.abs(this.ballX - this.lillianX);
+        if (dadDist < lilDist) {
+          this.moveCharacter('dad', this.ballX);
+        } else {
+          this.moveCharacter('lillian', this.ballX);
+        }
+        // Simulate a tap at balloon position
+        const fakeX = this.ballX;
+        const dadDx = Math.abs(this.ballX - this.dadX);
+        const lilDx = Math.abs(this.ballX - this.lillianX);
+        const dadHeadY = this.groundY - 80;
+        const lillHeadY = this.groundY - 65;
+        const dadReachable = dadDx <= CHAR_WIDTH_RANGE && this.ballY >= dadHeadY - CHAR_REACH_UP;
+        const lilReachable = lilDx <= CHAR_WIDTH_RANGE && this.ballY >= lillHeadY - CHAR_REACH_UP;
+        if (dadReachable || lilReachable) {
+          if (dadReachable) this.animateHit(this.dadContainer);
+          if (lilReachable) this.animateHit(this.lillianContainer);
+          this.hitBalloon(fakeX);
+        }
+      });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -319,6 +359,17 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   update(_time: number, delta: number): void {
     if (!this.gameActive) return;
     const dt = delta / 1000;
+
+    // Keyboard movement for characters
+    const moveSpeed = 220 * dt;
+    if (this.keyLeft?.isDown || this.keyA?.isDown) {
+      this.dadX = Phaser.Math.Clamp(this.dadX - moveSpeed, 30, GAME_WIDTH / 2 - 10);
+      this.dadContainer.setX(this.dadX);
+    }
+    if (this.keyRight?.isDown || this.keyD?.isDown) {
+      this.lillianX = Phaser.Math.Clamp(this.lillianX + moveSpeed, GAME_WIDTH / 2 + 10, GAME_WIDTH - 30);
+      this.lillianContainer.setX(this.lillianX);
+    }
 
     this.updateWind(delta);
     this.updateWindIndicator();

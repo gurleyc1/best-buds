@@ -34,11 +34,11 @@ export class HubScene extends Phaser.Scene {
   private readonly START_Y = 260;
 
   private readonly LOCATIONS: LocationData[] = [
-    { x: 160, y: 160, label: 'Home', dialogue: "Let's build a marble run!", scene: SCENE_KEYS.MARBLE_RUN, triggerW: 40, triggerH: 60 },
-    { x: 960, y: 200, label: 'Park', dialogue: "Let's explore!", scene: undefined, triggerW: 40, triggerH: 60 },
-    { x: 960, y: 600, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 40, triggerH: 60 },
-    { x: 200, y: 900, label: 'Soccer Field', dialogue: 'Penalty kicks!', scene: SCENE_KEYS.SOCCER, triggerW: 40, triggerH: 60 },
-    { x: 700, y: 900, label: 'Playground', dialogue: 'Keepy uppy!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 40, triggerH: 60 },
+    { x: 160, y: 160, label: 'Home', dialogue: "Let's build a marble run!", scene: SCENE_KEYS.MARBLE_RUN, triggerW: 80, triggerH: 80 },
+    { x: 960, y: 200, label: 'Park', dialogue: "Let's explore!", scene: undefined, triggerW: 80, triggerH: 80 },
+    { x: 960, y: 600, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 80, triggerH: 80 },
+    { x: 200, y: 900, label: 'Soccer Field', dialogue: 'Penalty kicks!', scene: SCENE_KEYS.SOCCER, triggerW: 80, triggerH: 80 },
+    { x: 700, y: 900, label: 'Playground', dialogue: 'Keepy uppy!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 80, triggerH: 80 },
   ];
 
   constructor() { super({ key: SCENE_KEYS.HUB }); }
@@ -273,9 +273,9 @@ export class HubScene extends Phaser.Scene {
   private addTriggerZone(loc: LocationData): void {
     const rect = new Phaser.Geom.Rectangle(
       loc.x - loc.triggerW / 2,
-      loc.y + loc.triggerH / 2 - 20,
+      loc.y - loc.triggerH / 2,
       loc.triggerW,
-      30
+      loc.triggerH
     );
     this.triggerZones.push({ zone: rect, data: loc, triggered: false });
   }
@@ -295,22 +295,23 @@ export class HubScene extends Phaser.Scene {
     const body = this.playerContainer.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
 
-    // Car sprite — drawn with graphics as fallback (no Kenney asset needed)
-    const carG = this.add.graphics();
-    carG.fillStyle(0xe74c3c);
-    carG.fillRoundedRect(-28, -16, 56, 32, 7);
-    carG.fillStyle(0x87ceeb, 0.8);
-    carG.fillRect(-20, -14, 16, 12);
-    carG.fillRect(4, -14, 16, 12);
-    carG.fillStyle(0x222222);
-    carG.fillCircle(-18, 16, 6);
-    carG.fillCircle(18, 16, 6);
-    // Capture as texture so we can use it as an Image with setVisible
-    carG.setVisible(false);
-    // Use a simple graphics object instead of image; store reference differently
-    this.carSprite = carG as unknown as Phaser.GameObjects.Image;
-    this.carSprite.setPosition(this.START_X, this.START_Y);
+    // Car sprite — generate a texture then create a proper Image (supports setFlipX)
+    const carGen = this.make.graphics({ x: 0, y: 0 });
+    carGen.fillStyle(0xe74c3c);
+    carGen.fillRoundedRect(0, 4, 56, 24, 6);
+    carGen.fillStyle(0x87ceeb, 0.9);
+    carGen.fillRect(8, 6, 16, 12);
+    carGen.fillRect(32, 6, 16, 12);
+    carGen.fillStyle(0x222222);
+    carGen.fillCircle(10, 28, 5);
+    carGen.fillCircle(46, 28, 5);
+    carGen.fillCircle(10, 4, 5);
+    carGen.fillCircle(46, 4, 5);
+    carGen.generateTexture('car_hub', 56, 32);
+    carGen.destroy();
+    this.carSprite = this.add.image(this.START_X, this.START_Y, 'car_hub');
     this.carSprite.setVisible(false);
+    this.carSprite.setDepth(4);
   }
 
   // ─── Camera ───────────────────────────────────────────────────────────────

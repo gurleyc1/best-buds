@@ -224,6 +224,12 @@ export class SoccerScene extends BaseMiniGameScene {
       this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
       this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
     }
+
+    this.input.on('pointerdown', () => {
+      if (this.stepState === 'move') this.confirmPosition();
+      else if (this.stepState === 'aim') this.confirmAim();
+      else if (this.stepState === 'power') this.confirmPower();
+    });
   }
 
   private startRound(): void {
@@ -242,12 +248,26 @@ export class SoccerScene extends BaseMiniGameScene {
     this.goalieX = GAME_WIDTH / 2;
     this.goalieGfx.setPosition(this.goalieX, this.GOAL_Y + 35);
 
-    this.dadContainer.setPosition(this.shooterX, this.PENALTY_Y + 50);
     this.aimArrow.setVisible(false);
     this.powerBarGfx.setVisible(false);
 
+    // Update which character is at penalty spot vs in goal
+    if (this.isPlayerShooting) {
+      // Dad shoots, Lillian is goalie
+      this.dadContainer.setVisible(true);
+      this.dadContainer.setPosition(this.shooterX, this.PENALTY_Y + 50);
+      this.goalieGfx.setVisible(true); // Lillian in goal
+    } else {
+      // Lillian shoots - swap: show Lillian at penalty spot, Dad in goal
+      this.dadContainer.setVisible(false); // hide Dad from penalty spot
+      this.goalieGfx.setVisible(false);   // hide Lillian from goal
+      // Lillian's container is watching from side - move it to penalty spot
+      this.lillianContainer.setPosition(this.shooterX, this.PENALTY_Y + 50);
+      // Could add a Dad-in-goal figure here but for now just show Lillian shooting
+    }
+
     this.kicksText.setText('Kicks: ' + this.kicksRemaining);
-    this.roundText.setText('Round ' + this.round + (this.isPlayerShooting ? ' - Dad Shoots' : ' - Lillian Shoots'));
+    this.roundText.setText('Round ' + this.round + (this.isPlayerShooting ? ' — Dad shoots' : ' — Lillian shoots'));
 
     this.highlightStep(1);
   }

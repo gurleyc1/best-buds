@@ -19,27 +19,34 @@ type PieceType =
 type Socket = 'N' | 'S' | 'E' | 'W';
 
 // Which sockets does each piece type expose?
+// curve_se / curve_sw use N (top) as their gravity-fed entry instead of S,
+// so falling marbles can enter them from above.
 const PIECE_SOCKETS: Record<PieceType, Socket[]> = {
   straight_h: ['E', 'W'],
   straight_v: ['N', 'S'],
   curve_ne:   ['N', 'E'],
   curve_nw:   ['N', 'W'],
-  curve_se:   ['S', 'E'],
-  curve_sw:   ['S', 'W'],
+  curve_se:   ['N', 'E'],   // N replaces S: marble enters top, exits right
+  curve_sw:   ['N', 'W'],   // N replaces S: marble enters top, exits left; W for horizontal entry
   funnel:     ['N', 'S'],
   splitter:   ['N', 'E', 'W'],
 };
 
 // Given entry socket, what is the exit socket?
+// Primary model: gravity pulls marbles down, so N is the main entry for most pieces.
+// curve_ne / curve_se: enter top (N) → exit right (E); enter left (W) → exit down (S)
+// curve_nw / curve_sw: enter top (N) → exit left (W); enter right (E) → exit down (S)
+//   Special case for curve_sw: also maps W→S so a marble rolling in from the right
+//   (entering via the W socket) is redirected downward.
 const EXIT_SOCKET: Record<PieceType, Partial<Record<Socket, Socket>>> = {
   straight_h: { E: 'W', W: 'E' },
   straight_v: { N: 'S', S: 'N' },
-  curve_ne:   { N: 'E', E: 'N' },
-  curve_nw:   { N: 'W', W: 'N' },
-  curve_se:   { S: 'E', E: 'S' },
-  curve_sw:   { S: 'W', W: 'S' },
-  funnel:     { N: 'S', S: 'N' },
-  splitter:   { N: 'E', E: 'N', W: 'N' },
+  curve_ne:   { N: 'E', W: 'S' },
+  curve_nw:   { N: 'W', E: 'S' },
+  curve_se:   { N: 'E', W: 'S' },
+  curve_sw:   { N: 'W', E: 'S', W: 'S' },
+  funnel:     { N: 'S' },
+  splitter:   { N: 'E' },           // splitter code overrides exit direction per splitterFlip
 };
 
 // Opposite socket

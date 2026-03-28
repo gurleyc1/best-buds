@@ -202,32 +202,27 @@ export class TennisScene extends BaseMiniGameScene {
     bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     bg.setDepth(300);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 'Tennis!', {
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, 'Tennis! 🎾', {
       fontSize: '52px', fontStyle: 'bold', color: '#ffd700',
       stroke: '#000000', strokeThickness: 8,
     }).setOrigin(0.5).setDepth(301);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, '↑↓  Move\nSPACE  Swing', {
-      fontSize: '22px', color: '#ffffff', align: 'center',
-      stroke: '#000000', strokeThickness: 4,
+    const controls = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, '↑↓  Move\nSPACE  Swing\n(or tap left/right)', {
+      fontSize: '20px', color: '#ffffff', align: 'center',
+      stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(301);
 
-    const serveTxt = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Press SPACE to serve!', {
-      fontSize: '20px', color: '#aaffaa',
+    const serveTxt = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Press SPACE or tap to serve!', {
+      fontSize: '18px', color: '#aaffaa',
       backgroundColor: '#00000066', padding: { x: 12, y: 6 },
     }).setOrigin(0.5).setDepth(301);
 
-    this.tweens.add({
-      targets: serveTxt, alpha: 0.3, duration: 700, yoyo: true, repeat: -1,
-    });
-
-    const container = this.add.container(0, 0, [bg, title, serveTxt]);
-    container.setDepth(300);
+    this.tweens.add({ targets: serveTxt, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
 
     const onStart = () => {
       if (this.gameStarted) return;
       this.gameStarted = true;
-      container.destroy();
+      bg.destroy(); title.destroy(); controls.destroy(); serveTxt.destroy();
       this.gameActive = true;
       this.beginServe();
     };
@@ -241,15 +236,26 @@ export class TennisScene extends BaseMiniGameScene {
   // ─── Input ─────────────────────────────────────────────────────────────────
 
   private setupInput(): void {
-    if (!this.input.keyboard) return;
-    this.keyUp    = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-    this.keyDown  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-    this.keyW     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.keyS     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.keyI     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
-    this.keyK     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
-    this.keyN     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+    if (this.input.keyboard) {
+      this.keyUp    = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+      this.keyDown  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      this.keyW     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.keyS     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+      this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.keyI     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
+      this.keyK     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
+      this.keyN     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
+    }
+
+    // Touch: tap anywhere on left half = Dad swing, right half = Lillian swing
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      if (!this.gameActive || this.serving) return;
+      if (ptr.x < GAME_WIDTH / 2) {
+        this.trySwing(1);
+      } else if (this.twoPlayer) {
+        this.trySwing(2);
+      }
+    });
   }
 
   // ─── Serve ─────────────────────────────────────────────────────────────────
