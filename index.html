@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Best Buds — Our Story</title>
+  <!-- GoatCounter analytics — replace YOUR_SITE with your goatcounter.com site name -->
+  <script data-goatcounter="https://YOUR_SITE.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
@@ -480,7 +484,8 @@
       nav ul { display: none; }
       nav { padding: 16px 24px; }
       #hero { grid-template-columns: 1fr; min-height: auto; }
-      .hero-photo { height: 55vw; min-height: 280px; }
+      .hero-photo { height: 70vw; min-height: 320px; }
+      .hero-photo img { object-position: center center; }
       .hero-text { padding: 48px 24px; }
       .two-col { grid-template-columns: 1fr; gap: 40px; }
       .two-col.reverse > :first-child { order: unset; }
@@ -810,6 +815,33 @@
   </div>
 </div>
 
+<!-- ─── FEEDBACK ──────────────────────────────────────────────────────────────── -->
+<div class="main-wrap">
+  <div class="section-narrow">
+    <span class="label">Leave a note</span>
+    <h2 class="section-title reveal" style="margin-bottom:8px;">We'd love to hear from you.</h2>
+    <p class="section-body reveal" style="margin-bottom:32px;">
+      Questions, ideas, reactions — drop them here. Comments post directly to our GitHub.
+    </p>
+    <script src="https://giscus.app/client.js"
+      data-repo="gurleyc1/best-buds"
+      data-repo-id="R_kgDOR0AT0w"
+      data-category="General"
+      data-category-id="DIC_kwDOR0AT084C5jg7"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="light"
+      data-lang="en"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</div>
+
 <!-- ─── FOOTER ─────────────────────────────────────────────────────────────────── -->
 <footer>
   <p>Best Buds — made with love by Chris &amp; Lillian</p>
@@ -860,7 +892,8 @@
     const img = document.createElement('img');
     img.src = CONTENT.HERO_PHOTO;
     img.alt = 'Dad and Lillian';
-    img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:center top;';
+    const isMobile = window.innerWidth <= 768;
+    img.style.cssText = `width:100%;height:100%;object-fit:cover;object-position:${isMobile ? 'center center' : 'center top'};`;
     container.insertBefore(img, container.firstChild);
     if (CONTENT.HERO_CAPTION) {
       const cap = document.getElementById('hero-caption');
