@@ -654,31 +654,20 @@ export class TennisScene extends BaseMiniGameScene {
         hitNet = true;
       }
 
-      if (hitNet) {
-        this.netHits = 0;
-        this.pointInProgress = false;
-        const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
-          fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
-          stroke: '#000', strokeThickness: 4,
-        }).setOrigin(0.5).setDepth(210);
-        this.time.delayedCall(1200, () => {
-          fault.destroy();
-          if (this.gameActive) this.beginServe();
-        });
-      }
+      // Just bounce off the net — no immediate fault
     }
 
     // ── Stuck-ball minimum speed check near net ───────────────────────────
     if (this.pointInProgress
       && Math.abs(this.ballX - this.NET_X) < 30
-      && Math.abs(this.ballVX) + Math.abs(this.ballVY) < 150) {
+      && Math.abs(this.ballVX) + Math.abs(this.ballVY) < 80) {
       this.netHits = 0;
       this.pointInProgress = false;
-      const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
+      const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net!', {
         fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
         stroke: '#000', strokeThickness: 4,
       }).setOrigin(0.5).setDepth(210);
-      this.time.delayedCall(1200, () => {
+      this.time.delayedCall(1000, () => {
         fault.destroy();
         if (this.gameActive) this.beginServe();
       });

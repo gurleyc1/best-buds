@@ -312,21 +312,16 @@ export class PlaygroundScene extends Phaser.Scene {
     const ox = -sinA * halfT;
     const oy =  cosA * halfT;
 
-    // Main plank body (two triangles forming a rotated rectangle)
-    this.bridgePlank.fillStyle(0x8b5e3c);
-    this.bridgePlank.fillTriangle(
-      pivotX + ox, pivotY + oy,
-      pivotX - ox, pivotY - oy,
-      endX   - ox, endY   - oy
-    );
-    this.bridgePlank.fillTriangle(
-      pivotX + ox, pivotY + oy,
-      endX   - ox, endY   - oy,
-      endX   + ox, endY   + oy
-    );
+    // Main plank body — thick line (most reliable across Phaser versions)
+    this.bridgePlank.lineStyle(14, 0x8b5e3c, 1);
+    this.bridgePlank.lineBetween(pivotX, pivotY, endX, endY);
 
-    // Wood plank lines across the bridge
-    this.bridgePlank.lineStyle(1, 0x5a3010, 0.6);
+    // Darker edge for depth
+    this.bridgePlank.lineStyle(2, 0x5a3010, 0.7);
+    this.bridgePlank.lineBetween(pivotX, pivotY, endX, endY);
+
+    // Wood grain lines across the plank
+    this.bridgePlank.lineStyle(1, 0x5a3010, 0.5);
     for (let pi = 1; pi < 6; pi++) {
       const t = pi / 6;
       const bx = pivotX + cosA * len * t;

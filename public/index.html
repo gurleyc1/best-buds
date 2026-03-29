@@ -931,7 +931,7 @@
     const btn = document.getElementById('poll-submit-btn');
     btn.disabled = true; btn.textContent = 'Submitting…';
     try {
-      await fetch(
+      const res = await fetch(
         `https://api.github.com/repos/${REPO}/issues/comments/${OPTIONS[optionIndex].id}/reactions`,
         {
           method: 'POST',
@@ -943,6 +943,13 @@
           body: JSON.stringify({ content: '+1' }),
         }
       );
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('Poll vote failed:', res.status, errData);
+        btn.disabled = false;
+        btn.textContent = res.status === 401 ? 'Token expired — contact admin' : 'Error — try again';
+        return;
+      }
       localStorage.setItem(LS_KEY, String(optionIndex));
       await render(String(optionIndex));
     } catch(e) {
