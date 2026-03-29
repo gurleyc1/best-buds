@@ -272,13 +272,36 @@ export class TennisScene extends BaseMiniGameScene {
       this.keyN     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.N);
     }
 
-    // Touch: tap anywhere on left half = Dad swing, right half = Lillian swing
+    // Touch: drag on left half = move Dad up/down; tap (no drag) = swing
+    let touchStartY = 0;
+    let touchMoved = false;
+
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (!this.gameActive || this.serving) return;
+      if (!this.gameActive) return;
+      touchStartY = ptr.y;
+      touchMoved = false;
+    });
+
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+      if (!ptr.isDown || !this.gameActive || this.serving) return;
       if (ptr.x < GAME_WIDTH / 2) {
-        this.trySwing(1);
+        if (Math.abs(ptr.y - touchStartY) > 6) touchMoved = true;
+        this.dadY = Phaser.Math.Clamp(ptr.y, this.CEILING_Y + 60, this.FLOOR_Y - 40);
       } else if (this.twoPlayer) {
-        this.trySwing(2);
+        if (Math.abs(ptr.y - touchStartY) > 6) touchMoved = true;
+        this.lillianY = Phaser.Math.Clamp(ptr.y, this.CEILING_Y + 60, this.FLOOR_Y - 40);
+      }
+    });
+
+    this.input.on('pointerup', (ptr: Phaser.Input.Pointer) => {
+      if (!this.gameActive || this.serving) return;
+      if (!touchMoved) {
+        // Tap with no drag = swing
+        if (ptr.x < GAME_WIDTH / 2) {
+          this.trySwing(1);
+        } else if (this.twoPlayer) {
+          this.trySwing(2);
+        }
       }
     });
   }
