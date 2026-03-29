@@ -655,26 +655,23 @@ export class TennisScene extends BaseMiniGameScene {
       }
 
       if (hitNet) {
-        this.netHits++;
-        if (this.netHits >= 2) {
-          this.netHits = 0;
-          this.pointInProgress = false;
-          const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
-            fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
-            stroke: '#000', strokeThickness: 4,
-          }).setOrigin(0.5).setDepth(210);
-          this.time.delayedCall(1200, () => {
-            fault.destroy();
-            if (this.gameActive) this.beginServe();
-          });
-        }
+        this.netHits = 0;
+        this.pointInProgress = false;
+        const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
+          fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
+          stroke: '#000', strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(210);
+        this.time.delayedCall(1200, () => {
+          fault.destroy();
+          if (this.gameActive) this.beginServe();
+        });
       }
     }
 
     // ── Stuck-ball minimum speed check near net ───────────────────────────
     if (this.pointInProgress
       && Math.abs(this.ballX - this.NET_X) < 30
-      && Math.abs(this.ballVX) + Math.abs(this.ballVY) < 50) {
+      && Math.abs(this.ballVX) + Math.abs(this.ballVY) < 150) {
       this.netHits = 0;
       this.pointInProgress = false;
       const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {

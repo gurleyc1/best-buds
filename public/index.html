@@ -483,10 +483,10 @@
     @media (max-width: 768px) {
       nav ul { display: none; }
       nav { padding: 16px 24px; }
-      #hero { grid-template-columns: 1fr; min-height: auto; }
-      .hero-photo { height: 70vw; min-height: 320px; }
-      .hero-photo img { object-position: center center; }
-      .hero-text { padding: 48px 24px; }
+      #hero { grid-template-columns: 1fr; min-height: auto; padding-top: 64px; }
+      .hero-photo { height: 56vw; min-height: 260px; order: -1; }
+      .hero-photo img { object-position: center 20%; }
+      .hero-text { padding: 40px 24px 48px; }
       .two-col { grid-template-columns: 1fr; gap: 40px; }
       .two-col.reverse > :first-child { order: unset; }
       .two-col.reverse > :last-child  { order: unset; }
@@ -1101,7 +1101,7 @@
     img.src = CONTENT.HERO_PHOTO;
     img.alt = 'Dad and Lillian';
     const isMobile = window.innerWidth <= 768;
-    img.style.cssText = `width:100%;height:100%;object-fit:cover;object-position:${isMobile ? 'center center' : 'center top'};`;
+    img.style.cssText = `width:100%;height:100%;object-fit:cover;object-position:${isMobile ? 'center 20%' : 'center top'};`;
     container.insertBefore(img, container.firstChild);
     if (CONTENT.HERO_CAPTION) {
       const cap = document.getElementById('hero-caption');
