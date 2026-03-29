@@ -834,176 +834,34 @@
   #poll-tab:hover { background: #b84e2a; padding-right: 14px; }
 
   #poll-panel {
-    position: fixed; right: -320px; top: 50%; transform: translateY(-50%);
+    position: fixed; right: -340px; top: 50%; transform: translateY(-50%);
     z-index: 499;
-    width: 300px;
+    width: 320px;
     background: #fff;
     border-radius: 10px 0 0 10px;
     box-shadow: -4px 0 24px rgba(0,0,0,0.14);
-    padding: 24px 20px 20px;
     transition: right .3s ease;
-    max-height: 90vh; overflow-y: auto;
+    max-height: 90vh; overflow: hidden;
   }
   #poll-panel.open { right: 0; }
-
-  .poll-panel-title {
-    font-family: var(--serif); font-size: 1.05rem; font-weight: 700;
-    color: var(--ink); margin-bottom: 4px;
-  }
-  .poll-panel-sub {
-    font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 16px; line-height: 1.5;
-  }
-  .poll-radio-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 10px; margin-bottom: 4px;
-    border-radius: 6px; cursor: pointer;
-    border: 1.5px solid var(--rule);
-    transition: border-color .15s, background .15s;
-    font-family: var(--sans); font-size: 0.9rem;
-  }
-  .poll-radio-row:hover { border-color: var(--accent); background: #fdf6f3; }
-  .poll-radio-row input[type=radio] { accent-color: var(--accent); cursor: pointer; }
-  .poll-radio-row.voted-for { border-color: var(--accent); background: #fdf6f3; }
-
-  .poll-bar-wrap { flex: 1; height: 6px; background: var(--rule); border-radius: 99px; overflow: hidden; margin-left: auto; min-width: 50px; }
-  .poll-bar-fill { height: 100%; background: var(--accent-2); border-radius: 99px; transition: width .5s ease; }
-  .poll-pct { font-size: 0.72rem; color: var(--ink-soft); min-width: 30px; text-align: right; }
-
-  .poll-submit-btn {
-    width: 100%; margin-top: 14px; padding: 10px;
-    background: var(--accent); color: #fff;
-    font-family: var(--sans); font-size: 0.88rem; font-weight: 600;
-    border: none; border-radius: 5px; cursor: pointer;
-    transition: background .2s;
-  }
-  .poll-submit-btn:hover { background: #b84e2a; }
-  .poll-submit-btn:disabled { background: #ccc; cursor: default; }
-  .poll-voted-msg { font-size: 0.82rem; color: var(--accent-2); font-weight: 500; margin-top: 12px; text-align: center; }
 </style>
 
 <div id="poll-tab">What's next?</div>
 <div id="poll-panel">
-  <p class="poll-panel-title">What should we build next?</p>
-  <p class="poll-panel-sub">Pick one — one vote per person.</p>
-  <div id="poll-widget"><p style="font-size:0.85rem;color:#999">Loading…</p></div>
+  <iframe src="https://strawpoll.com/embed/GPgVYqdVzna"
+    width="320" height="500" frameborder="0" scrolling="yes"
+    style="border:none; display:block;"></iframe>
 </div>
 
 <script>
 (function() {
   const tab   = document.getElementById('poll-tab');
   const panel = document.getElementById('poll-panel');
+
   tab.addEventListener('click', () => panel.classList.toggle('open'));
   document.addEventListener('click', e => {
     if (!panel.contains(e.target) && e.target !== tab) panel.classList.remove('open');
   });
-
-  const REPO    = 'gurleyc1/best-buds';
-  const TOKEN   = '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';
-  const LS_KEY  = 'bb_poll_voted_v1';
-  const OPTIONS = [
-    { label: '🎳 Bowling',          id: 4150522909 },
-    { label: '🏊 Swimming',         id: 4150522929 },
-    { label: '⛳ Mini Golf',         id: 4150522955 },
-    { label: '🎣 Fishing',          id: 4150522984 },
-    { label: '🎲 Board Game Night', id: 4150523013 },
-    { label: '🚴 Bike Ride',        id: 4150523049 },
-    { label: '🏐 Volleyball',       id: 4150524844 },
-    { label: '🏀 Basketball',       id: 4150524918 },
-    { label: '🏃 Running Race',     id: 4150524966 },
-  ];
-
-  const container   = document.getElementById('poll-widget');
-  const alreadyVoted = localStorage.getItem(LS_KEY);
-
-  async function fetchCounts() {
-    const counts = await Promise.all(OPTIONS.map(async opt => {
-      const res  = await fetch(
-        `https://api.github.com/repos/${REPO}/issues/comments/${opt.id}/reactions`,
-        { headers: { Accept: 'application/vnd.github.squirrel-girl-preview+json' } }
-      );
-      const data = await res.json();
-      return Array.isArray(data) ? data.filter(r => r.content === '+1').length : 0;
-    }));
-    return counts;
-  }
-
-  async function castVote(optionIndex) {
-    const btn = document.getElementById('poll-submit-btn');
-    btn.disabled = true; btn.textContent = 'Submitting…';
-    try {
-      const res = await fetch(
-        `https://api.github.com/repos/${REPO}/issues/comments/${OPTIONS[optionIndex].id}/reactions`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `token ${TOKEN}`,
-            Accept: 'application/vnd.github.squirrel-girl-preview+json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content: '+1' }),
-        }
-      );
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        console.error('Poll vote failed:', res.status, errData);
-        btn.disabled = false;
-        btn.textContent = res.status === 401 ? 'Token expired — contact admin' : 'Error — try again';
-        return;
-      }
-      localStorage.setItem(LS_KEY, String(optionIndex));
-      await render(String(optionIndex));
-    } catch(e) {
-      btn.disabled = false; btn.textContent = 'Submit Vote';
-    }
-  }
-
-  async function render(votedIndex) {
-    const counts   = await fetchCounts();
-    const total    = counts.reduce((a, b) => a + b, 0);
-    const hasVoted = votedIndex !== null && votedIndex !== undefined;
-    let html = '';
-
-    OPTIONS.forEach((opt, i) => {
-      const count    = counts[i];
-      const pct      = total > 0 ? Math.round((count / total) * 100) : 0;
-      const isChosen = String(i) === String(votedIndex);
-      if (!hasVoted) {
-        html += `
-          <label class="poll-radio-row">
-            <input type="radio" name="poll" value="${i}"> ${opt.label}
-          </label>`;
-      } else {
-        html += `
-          <div class="poll-radio-row${isChosen ? ' voted-for' : ''}">
-            <span>${opt.label}${isChosen ? ' ✓' : ''}</span>
-            <div class="poll-bar-wrap"><div class="poll-bar-fill" style="width:${pct}%"></div></div>
-            <span class="poll-pct">${pct}%</span>
-          </div>`;
-      }
-    });
-
-    if (!hasVoted) {
-      html += `<button class="poll-submit-btn" id="poll-submit-btn" disabled>Submit Vote</button>`;
-    } else {
-      html += `<p class="poll-voted-msg">✓ Thanks for voting!</p>`;
-    }
-
-    container.innerHTML = html;
-
-    if (!hasVoted) {
-      container.querySelectorAll('input[type=radio]').forEach(radio => {
-        radio.addEventListener('change', () => {
-          document.getElementById('poll-submit-btn').disabled = false;
-        });
-      });
-      document.getElementById('poll-submit-btn').addEventListener('click', () => {
-        const sel = container.querySelector('input[type=radio]:checked');
-        if (sel) castVote(parseInt(sel.value));
-      });
-    }
-  }
-
-  render(alreadyVoted);
 })();
 </script>
 
