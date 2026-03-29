@@ -86,29 +86,41 @@ export class HubScene extends Phaser.Scene {
     g.fillStyle(0x5a9e4a);
     g.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
-    // 2. Roads — horizontal and vertical
+    // 2. Roads — main cross + connector spurs to each location
     g.fillStyle(0x6b7280);
-    // Horizontal road: y=580 to y=620
+    // Main horizontal road: y=580–620
     g.fillRect(0, 580, WORLD_SIZE, 40);
-    // Vertical road: x=580 to x=620
+    // Main vertical road: x=580–620
     g.fillRect(580, 0, 40, WORLD_SIZE);
 
-    // 3. Sidewalks — 16px strips along both sides of each road
-    g.fillStyle(0xd4c5a0);
-    // Horizontal road sidewalks
-    g.fillRect(0, 564, WORLD_SIZE, 16); // top side
-    g.fillRect(0, 620, WORLD_SIZE, 16); // bottom side
-    // Vertical road sidewalks
-    g.fillRect(564, 0, 16, WORLD_SIZE); // left side
-    g.fillRect(620, 0, 16, WORLD_SIZE); // right side
+    // Connector roads (24px wide, leading from main roads to each activity)
+    g.fillStyle(0x7a8390); // slightly lighter than main roads
+    // Home (160,160): H arm y=148–172 from x=160 to x=580
+    g.fillRect(160, 148, 420, 24);
+    // Park (960,200): H arm y=188–212 from x=620 to x=960
+    g.fillRect(620, 188, 340, 24);
+    // Tennis (960,750): V arm x=948–972 from y=620 to y=750
+    g.fillRect(948, 620, 24, 130);
+    // Soccer (200,900): V arm x=188–212 from y=620 to y=900
+    g.fillRect(188, 620, 24, 280);
+    // Playground (700,900): short H spur y=620 then V arm x=688–712 to y=900
+    g.fillRect(620, 608, 92, 24); // H link from V road to x=700
+    g.fillRect(688, 620, 24, 280); // V arm down to playground
+    // Ice Cream (400,700): V arm x=388–412 from y=580 to y=700
+    g.fillRect(388, 570, 24, 130);
 
-    // 4. Road markings — dashed yellow center lines
+    // 3. Sidewalks — 16px strips along main roads only
+    g.fillStyle(0xd4c5a0);
+    g.fillRect(0, 564, WORLD_SIZE, 16); // H road top sidewalk
+    g.fillRect(0, 620, WORLD_SIZE, 16); // H road bottom sidewalk
+    g.fillRect(564, 0, 16, WORLD_SIZE); // V road left sidewalk
+    g.fillRect(620, 0, 16, WORLD_SIZE); // V road right sidewalk
+
+    // 4. Road markings — dashed yellow center lines on main roads
     g.fillStyle(0xfbbf24, 0.6);
-    // Horizontal road center dashes
     for (let rx = 0; rx < WORLD_SIZE; rx += 60) {
       g.fillRect(rx, 598, 36, 5);
     }
-    // Vertical road center dashes
     for (let ry = 0; ry < WORLD_SIZE; ry += 60) {
       g.fillRect(598, ry, 5, 36);
     }
@@ -476,7 +488,10 @@ export class HubScene extends Phaser.Scene {
     if (this.transitioning) return;
 
     const dt = delta / 1000;
-    const speed = this.transportMode === 'car' ? CAR_SPEED : WALK_SPEED;
+    const onRoad = this.isOnRoad(this.playerContainer.x, this.playerContainer.y);
+    const speed = this.transportMode === 'car'
+      ? (onRoad ? CAR_SPEED : WALK_SPEED)  // car slows to walk speed off-road
+      : WALK_SPEED;
 
     let dx = 0;
     let dy = 0;
@@ -517,7 +532,7 @@ export class HubScene extends Phaser.Scene {
     // Face direction
     if (dx !== 0) {
       this.playerFacingRight = dx > 0;
-      this.playerContainer.setScale(this.playerFacingRight ? 1 : -1, 1);
+      this.playerContainer.setScale(this.playerFacingRight ? 1.5 : -1.5, 1.5);
     }
 
     // Sync car position to player
@@ -545,6 +560,30 @@ export class HubScene extends Phaser.Scene {
     if (this.dialogueBubble) {
       this.dialogueBubble.setPosition(this.playerContainer.x, this.playerContainer.y - 80);
     }
+  }
+
+  // ─── Road Detection ───────────────────────────────────────────────────────
+
+  private isOnRoad(x: number, y: number): boolean {
+    const T = 22; // tolerance in px
+    // Main H road
+    if (y >= 580 - T && y <= 620 + T) return true;
+    // Main V road
+    if (x >= 580 - T && x <= 620 + T) return true;
+    // Home H arm (y≈160, x=160–580)
+    if (y >= 148 - T && y <= 172 + T && x >= 160 && x <= 590) return true;
+    // Park H arm (y≈200, x=620–960)
+    if (y >= 188 - T && y <= 212 + T && x >= 610 && x <= 970) return true;
+    // Tennis V arm (x≈960, y=620–750)
+    if (x >= 948 - T && x <= 972 + T && y >= 610 && y <= 760) return true;
+    // Soccer V arm (x≈200, y=620–900)
+    if (x >= 188 - T && x <= 212 + T && y >= 610 && y <= 910) return true;
+    // Playground H link + V arm (x=620–712 at y≈620, then x≈700 y=620–910)
+    if (y >= 608 - T && y <= 632 + T && x >= 610 && x <= 715) return true;
+    if (x >= 688 - T && x <= 712 + T && y >= 610 && y <= 910) return true;
+    // Ice Cream V arm (x≈400, y=570–710)
+    if (x >= 388 - T && x <= 412 + T && y >= 560 && y <= 715) return true;
+    return false;
   }
 
   // ─── Triggers ─────────────────────────────────────────────────────────────
@@ -576,6 +615,12 @@ export class HubScene extends Phaser.Scene {
     if (this.dialogueBubble) {
       this.dialogueBubble.destroy();
       this.dialogueBubble = null;
+    }
+
+    // Home triggers sleep sequence instead of a mini-game
+    if (loc.label === 'Home') {
+      this.doSleepSequence();
+      return;
     }
 
     this.dialogueBubble = this.add.container(this.playerContainer.x, this.playerContainer.y - 80);
@@ -610,6 +655,83 @@ export class HubScene extends Phaser.Scene {
           });
         });
       }
+    });
+  }
+
+  private doSleepSequence(): void {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    MusicManager.stopMusic();
+
+    // Overlay fades to dark blue (night)
+    const overlay = this.add.graphics().setScrollFactor(0).setDepth(300);
+    overlay.fillStyle(0x0a0a2e, 0);
+    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Stars
+    const stars = this.add.graphics().setScrollFactor(0).setDepth(301);
+    for (let i = 0; i < 40; i++) {
+      const sx = Math.random() * GAME_WIDTH;
+      const sy = Math.random() * GAME_HEIGHT * 0.6;
+      stars.fillStyle(0xffffff, 0.8);
+      stars.fillCircle(sx, sy, Math.random() * 2 + 1);
+    }
+    stars.setAlpha(0);
+
+    // "Zzz" bubbles
+    const zzz = this.add.text(
+      this.playerContainer.x - this.cameras.main.scrollX + 30,
+      this.playerContainer.y - this.cameras.main.scrollY - 20,
+      'z z z', {
+        fontSize: '22px', color: '#aaaaff', fontStyle: 'italic',
+        stroke: '#000033', strokeThickness: 3,
+      }
+    ).setScrollFactor(0).setDepth(302).setAlpha(0);
+
+    // Moon
+    const moon = this.add.graphics().setScrollFactor(0).setDepth(301);
+    moon.fillStyle(0xfff5c0);
+    moon.fillCircle(GAME_WIDTH - 60, 60, 30);
+    moon.fillStyle(0x0a0a2e);
+    moon.fillCircle(GAME_WIDTH - 48, 52, 24);
+    moon.setAlpha(0);
+
+    // "Good night!" text
+    const gn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '🌙 Good night! 🌙', {
+      fontSize: '28px', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000033', strokeThickness: 4,
+      backgroundColor: '#00003388', padding: { x: 16, y: 10 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(303).setAlpha(0);
+
+    // Fade to night
+    this.tweens.add({
+      targets: overlay, alpha: 0.88, duration: 1400, ease: 'Sine.In',
+    });
+    this.tweens.add({
+      targets: [stars, moon], alpha: 1, duration: 1200, delay: 400,
+    });
+    this.tweens.add({
+      targets: zzz, alpha: 1, y: '-=30', duration: 900, delay: 800,
+    });
+    this.tweens.add({
+      targets: gn, alpha: 1, duration: 600, delay: 1400,
+      onComplete: () => {
+        // Hold for a moment then fade back to morning
+        this.time.delayedCall(1800, () => {
+          this.tweens.add({
+            targets: [overlay, stars, moon, zzz, gn], alpha: 0,
+            duration: 1000,
+            onComplete: () => {
+              overlay.destroy(); stars.destroy(); moon.destroy();
+              zzz.destroy(); gn.destroy();
+              this.transitioning = false;
+              // Reset trigger so Home can be entered again
+              const homeTrigger = this.triggerZones.find(t => t.data.label === 'Home');
+              if (homeTrigger) homeTrigger.triggered = false;
+            },
+          });
+        });
+      },
     });
   }
 }

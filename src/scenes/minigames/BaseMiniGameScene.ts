@@ -14,9 +14,22 @@ export abstract class BaseMiniGameScene extends Phaser.Scene {
   protected abstract gameName: string;
 
   protected sceneData: { returnX?: number; returnY?: number } = {};
+  private keyEsc!: Phaser.Input.Keyboard.Key;
 
   protected captureReturnData(data?: { returnX?: number; returnY?: number }): void {
     this.sceneData = data ?? {};
+  }
+
+  protected setupEscapeKey(): void {
+    if (this.input.keyboard) {
+      this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    }
+  }
+
+  protected checkEscape(): void {
+    if (this.keyEsc && Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+      this.exitToHub();
+    }
   }
 
   protected createHUD(label1: string, label2 = ''): void {

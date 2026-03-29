@@ -50,6 +50,8 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   private keyRight!: Phaser.Input.Keyboard.Key;
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
+  private keyW!: Phaser.Input.Keyboard.Key;       // Dad hit
+  private keyUpArrow!: Phaser.Input.Keyboard.Key; // Lillian hit
 
   constructor() { super({ key: 'KeepyUppyScene' }); }
 
@@ -82,6 +84,7 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     this.createHUD('Hits');
     this.createBallAndUI();
     this.setupInput();
+    this.setupEscapeKey();
     this.gameActive = true;
     MusicManager.playTheme('keepy');
   }
@@ -179,9 +182,9 @@ export class KeepyUppyScene extends BaseMiniGameScene {
 
     // Instruction footer
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 30,
-      `Tap left = move ${this.dadName}  |  Tap right = move ${this.lillianName}`,
+      `A/D move ${this.dadName} | ←/→ move ${this.lillianName} | W / ↑ to hit`,
       {
-        fontSize: '12px', color: '#ffffff',
+        fontSize: '11px', color: '#ffffff',
         backgroundColor: '#00000066', padding: { x: 8, y: 3 },
       }
     ).setOrigin(0.5).setDepth(101);
@@ -192,73 +195,45 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   // ─────────────────────────────────────────────────────────────────────────────
 
   private setupInput(): void {
+    // Mobile: tap left half = move Dad toward tap, tap right half = move Lillian toward tap
+    // Either character hits if in range of balloon
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
       if (!this.gameActive) return;
-
-      const tapX = ptr.x;
-      const tapY = ptr.y;
-
-      // Move the correct character toward the tap
-      if (tapX < GAME_WIDTH / 2) {
-        this.moveCharacter('dad', tapX);
+      if (ptr.x < GAME_WIDTH / 2) {
+        this.moveCharacter('dad', ptr.x);
+        this.tryHit('dad');
       } else {
-        this.moveCharacter('lillian', tapX);
-      }
-
-      // Hit detection: balloon must be ABOVE tap and near a character
-      if (this.ballY >= tapY) return;   // balloon not above the tap
-
-      // Check each character for proximity
-      const dadDx = Math.abs(this.ballX - this.dadX);
-      const lilDx = Math.abs(this.ballX - this.lillianX);
-
-      // Head of character is roughly 80px above groundY (at scale 1.8/1.5)
-      const dadHeadY   = this.groundY - 80;
-      const lillHeadY  = this.groundY - 65;
-
-      const dadReachable  = dadDx  <= CHAR_WIDTH_RANGE && this.ballY >= dadHeadY  - CHAR_REACH_UP;
-      const lilReachable  = lilDx  <= CHAR_WIDTH_RANGE && this.ballY >= lillHeadY - CHAR_REACH_UP;
-
-      if (dadReachable || lilReachable) {
-        // Animate the character(s) that can reach it
-        if (dadReachable)  this.animateHit(this.dadContainer);
-        if (lilReachable)  this.animateHit(this.lillianContainer);
-        this.hitBalloon(tapX);
+        this.moveCharacter('lillian', ptr.x);
+        this.tryHit('lillian');
       }
     });
 
-    // Keyboard: LEFT/A moves Dad toward balloon, RIGHT/D moves Lillian toward balloon
-    // SPACE tries to hit balloon with whichever character is closer
     if (this.input.keyboard) {
-      this.keyLeft  = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
-      this.keyRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-      this.keyA     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-      this.keyD     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.keyLeft    = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+      this.keyRight   = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+      this.keyA       = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.keyD       = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.keyW       = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.keyUpArrow = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
 
-      this.input.keyboard.on('keydown-SPACE', () => {
-        if (!this.gameActive) return;
-        // Move the closer character under the balloon then try hit
-        const dadDist = Math.abs(this.ballX - this.dadX);
-        const lilDist = Math.abs(this.ballX - this.lillianX);
-        if (dadDist < lilDist) {
-          this.moveCharacter('dad', this.ballX);
-        } else {
-          this.moveCharacter('lillian', this.ballX);
-        }
-        // Simulate a tap at balloon position
-        const fakeX = this.ballX;
-        const dadDx = Math.abs(this.ballX - this.dadX);
-        const lilDx = Math.abs(this.ballX - this.lillianX);
-        const dadHeadY = this.groundY - 80;
-        const lillHeadY = this.groundY - 65;
-        const dadReachable = dadDx <= CHAR_WIDTH_RANGE && this.ballY >= dadHeadY - CHAR_REACH_UP;
-        const lilReachable = lilDx <= CHAR_WIDTH_RANGE && this.ballY >= lillHeadY - CHAR_REACH_UP;
-        if (dadReachable || lilReachable) {
-          if (dadReachable) this.animateHit(this.dadContainer);
-          if (lilReachable) this.animateHit(this.lillianContainer);
-          this.hitBalloon(fakeX);
-        }
+      // Dedicated hit keys
+      this.input.keyboard.on('keydown-W', () => {
+        if (this.gameActive) this.tryHit('dad');
       });
+      this.input.keyboard.on('keydown-UP', () => {
+        if (this.gameActive) this.tryHit('lillian');
+      });
+    }
+  }
+
+  private tryHit(who: 'dad' | 'lillian'): void {
+    const charX = who === 'dad' ? this.dadX : this.lillianX;
+    const headY = who === 'dad' ? this.groundY - 80 : this.groundY - 65;
+    const dx = Math.abs(this.ballX - charX);
+    const reachable = dx <= CHAR_WIDTH_RANGE && this.ballY >= headY - CHAR_REACH_UP;
+    if (reachable) {
+      this.animateHit(who === 'dad' ? this.dadContainer : this.lillianContainer);
+      this.hitBalloon(charX);
     }
   }
 
@@ -372,17 +347,26 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   // ─────────────────────────────────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
+    this.checkEscape();
     if (!this.gameActive) return;
     const dt = delta / 1000;
 
-    // Keyboard movement for characters
-    const moveSpeed = 220 * dt;
-    if (this.keyLeft?.isDown || this.keyA?.isDown) {
-      this.dadX = Phaser.Math.Clamp(this.dadX - moveSpeed, 30, GAME_WIDTH / 2 - 10);
+    // Keyboard movement — A/D move Dad, LEFT/RIGHT move Lillian, full screen range
+    const moveSpeed = 240 * dt;
+    if (this.keyA?.isDown) {
+      this.dadX = Phaser.Math.Clamp(this.dadX - moveSpeed, 30, GAME_WIDTH - 30);
       this.dadContainer.setX(this.dadX);
     }
-    if (this.keyRight?.isDown || this.keyD?.isDown) {
-      this.lillianX = Phaser.Math.Clamp(this.lillianX + moveSpeed, GAME_WIDTH / 2 + 10, GAME_WIDTH - 30);
+    if (this.keyD?.isDown) {
+      this.dadX = Phaser.Math.Clamp(this.dadX + moveSpeed, 30, GAME_WIDTH - 30);
+      this.dadContainer.setX(this.dadX);
+    }
+    if (this.keyLeft?.isDown) {
+      this.lillianX = Phaser.Math.Clamp(this.lillianX - moveSpeed, 30, GAME_WIDTH - 30);
+      this.lillianContainer.setX(this.lillianX);
+    }
+    if (this.keyRight?.isDown) {
+      this.lillianX = Phaser.Math.Clamp(this.lillianX + moveSpeed, 30, GAME_WIDTH - 30);
       this.lillianContainer.setX(this.lillianX);
     }
 

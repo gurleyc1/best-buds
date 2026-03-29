@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Best Buds — Our Story</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f9f6f1;
+      --bg-dark:   #111009;
+      --ink:       #1a1612;
+      --ink-soft:  #5a5044;
+      --rule:      #e0d8cc;
+      --accent:    #d4603a;
+      --accent-2:  #4a7c59;
+      --gold:      #c9a84c;
+      --serif:     'Playfair Display', Georgia, serif;
+      --sans:      'DM Sans', system-ui, sans-serif;
+      --display:   'DM Serif Display', Georgia, serif;
+      --max:       1080px;
+      --col:       680px;
+    }
+
+    html { scroll-behavior: smooth; font-size: 17px; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    img { display: block; max-width: 100%; }
+
+    /* ─── NAV ───────────────────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 40px;
+      background: rgba(249,246,241,0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--rule);
+    }
+    nav .wordmark {
+      font-family: var(--serif);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    nav ul {
+      list-style: none;
+      display: flex; gap: 32px;
+    }
+    nav ul a {
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      text-decoration: none;
+      transition: color .2s;
+    }
+    nav ul a:hover { color: var(--accent); }
+    .nav-cta {
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 9px 22px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: background .2s;
+    }
+    .nav-cta:hover { background: #b84e2a; }
+
+    /* ─── HERO ──────────────────────────────────────────────────────────────── */
+    #hero {
+      padding-top: 80px;
+      min-height: 100svh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .hero-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 80px 60px 80px 80px;
+    }
+    .hero-kicker {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+    .hero-title {
+      font-family: var(--serif);
+      font-size: clamp(2.8rem, 4.5vw, 4.2rem);
+      font-weight: 800;
+      line-height: 1.08;
+      color: var(--ink);
+      margin-bottom: 28px;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .hero-body {
+      font-size: 1.05rem;
+      line-height: 1.75;
+      color: var(--ink-soft);
+      max-width: 440px;
+      margin-bottom: 44px;
+    }
+    .hero-actions {
+      display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 30px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: background .2s, transform .15s;
+    }
+    .btn-primary:hover { background: #b84e2a; transform: translateY(-1px); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 30px;
+      border: 1.5px solid var(--rule);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: border-color .2s;
+    }
+    .btn-secondary:hover { border-color: var(--ink); }
+
+    /* Hero photo side */
+    .hero-photo {
+      position: relative;
+      overflow: hidden;
+      background: #e8e2da;
+    }
+    .hero-photo img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+    .hero-photo-placeholder {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px;
+      background: linear-gradient(160deg, #ede7df 0%, #d8cfc4 100%);
+      padding: 40px;
+      text-align: center;
+    }
+    .hero-photo-placeholder .photo-icon { font-size: 3rem; opacity: .4; }
+    .hero-photo-placeholder p {
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+      opacity: .7;
+      line-height: 1.6;
+    }
+    .hero-caption {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 48px 32px 24px;
+      background: linear-gradient(transparent, rgba(17,16,9,0.7));
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.75);
+      font-style: italic;
+    }
+
+    /* ─── PULL QUOTE ─────────────────────────────────────────────────────────── */
+    .pull-quote-section {
+      background: var(--bg-dark);
+      padding: 80px 40px;
+      text-align: center;
+    }
+    .pull-quote {
+      max-width: 720px;
+      margin: 0 auto;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(1.45rem, 2.5vw, 2rem);
+      line-height: 1.55;
+      color: #f0ead8;
+    }
+    .pull-quote::before { content: '\201C'; color: var(--gold); }
+    .pull-quote::after  { content: '\201D'; color: var(--gold); }
+    .pull-quote-attr {
+      margin-top: 24px;
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(240,234,216,.45);
+    }
+
+    /* ─── SECTION WRAPPER ────────────────────────────────────────────────────── */
+    .section {
+      padding: 100px 40px;
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+    .section-narrow {
+      padding: 100px 40px;
+      max-width: var(--col);
+      margin: 0 auto;
+    }
+    .section-rule {
+      border-top: 1px solid var(--rule);
+    }
+    .label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    h2.section-title {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 3.5vw, 2.8rem);
+      font-weight: 700;
+      line-height: 1.18;
+      margin-bottom: 20px;
+    }
+    h2.section-title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .section-body {
+      font-size: 1.02rem;
+      line-height: 1.8;
+      color: var(--ink-soft);
+      max-width: 600px;
+    }
+    .section-body p + p { margin-top: 20px; }
+
+    /* ─── TWO-COL ─────────────────────────────────────────────────────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+    }
+    .two-col.reverse > :first-child { order: 2; }
+    .two-col.reverse > :last-child  { order: 1; }
+
+    /* ─── MINI-GAME GRID ──────────────────────────────────────────────────────── */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2px;
+      margin-top: 60px;
+      border: 1px solid var(--rule);
+    }
+    .game-card {
+      padding: 40px 36px;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      transition: background .2s;
+      cursor: default;
+    }
+    .game-card:hover { background: #fff; }
+    .game-icon {
+      font-size: 2rem;
+      margin-bottom: 18px;
+      display: block;
+    }
+    .game-name {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .game-desc {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: var(--ink-soft);
+      margin-bottom: 20px;
+    }
+    .game-tags {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      color: var(--ink-soft);
+    }
+
+    /* ─── TIMELINE ────────────────────────────────────────────────────────────── */
+    .timeline {
+      margin-top: 64px;
+      position: relative;
+      padding-left: 32px;
+      border-left: 1.5px solid var(--rule);
+    }
+    .timeline-entry {
+      margin-bottom: 52px;
+      position: relative;
+    }
+    .timeline-entry::before {
+      content: '';
+      position: absolute;
+      left: -39px;
+      top: 6px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2.5px solid var(--bg);
+      box-shadow: 0 0 0 1.5px var(--accent);
+    }
+    .timeline-date {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      opacity: .65;
+      margin-bottom: 8px;
+    }
+    .timeline-title {
+      font-family: var(--serif);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .timeline-body {
+      font-size: 0.92rem;
+      line-height: 1.75;
+      color: var(--ink-soft);
+      max-width: 520px;
+    }
+    .timeline-quote {
+      margin-top: 14px;
+      padding: 14px 18px;
+      background: #fff;
+      border-left: 3px solid var(--accent);
+      font-style: italic;
+      font-size: 0.9rem;
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    .timeline-quote cite {
+      display: block;
+      font-style: normal;
+      font-size: 0.76rem;
+      color: var(--ink-soft);
+      margin-top: 6px;
+    }
+
+    /* ─── TECH STACK ──────────────────────────────────────────────────────────── */
+    .tech-row {
+      display: flex; flex-wrap: wrap;
+      gap: 0;
+      border: 1px solid var(--rule);
+      margin-top: 48px;
+    }
+    .tech-item {
+      flex: 1; min-width: 160px;
+      padding: 32px 28px;
+      border-right: 1px solid var(--rule);
+    }
+    .tech-item:last-child { border-right: none; }
+    .tech-name {
+      font-family: var(--serif);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .tech-desc {
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--ink-soft);
+    }
+
+    /* ─── PLAY CTA ────────────────────────────────────────────────────────────── */
+    #play {
+      background: var(--bg-dark);
+      padding: 120px 40px;
+      text-align: center;
+    }
+    #play .play-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 24px;
+      display: block;
+    }
+    #play h2 {
+      font-family: var(--serif);
+      font-size: clamp(2.2rem, 4vw, 3.2rem);
+      font-weight: 700;
+      color: #f0ead8;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+    #play p {
+      font-size: 1rem;
+      color: rgba(240,234,216,.55);
+      max-width: 420px;
+      margin: 0 auto 44px;
+      line-height: 1.7;
+    }
+    .btn-play {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 17px 40px;
+      background: var(--gold);
+      color: var(--bg-dark);
+      font-family: var(--sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: background .2s, transform .15s;
+    }
+    .btn-play:hover { background: #dbb94f; transform: translateY(-2px); }
+
+    /* ─── FOOTER ──────────────────────────────────────────────────────────────── */
+    footer {
+      background: var(--bg-dark);
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding: 32px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer p {
+      font-size: 0.8rem;
+      color: rgba(240,234,216,.35);
+    }
+
+    /* ─── REVEAL ANIMATIONS ──────────────────────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav ul { display: none; }
+      nav { padding: 16px 24px; }
+      #hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-photo { height: 55vw; min-height: 280px; }
+      .hero-text { padding: 48px 24px; }
+      .two-col { grid-template-columns: 1fr; gap: 40px; }
+      .two-col.reverse > :first-child { order: unset; }
+      .two-col.reverse > :last-child  { order: unset; }
+      .section, .section-narrow { padding: 64px 24px; }
+      .tech-row { flex-direction: column; }
+      .tech-item { border-right: none; border-bottom: 1px solid var(--rule); }
+      .tech-item:last-child { border-bottom: none; }
+      .games-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ─── NAV ─────────────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="wordmark" href="#">Best Buds</a>
+  <ul>
+    <li><a href="#story">Story</a></li>
+    <li><a href="#games">Games</a></li>
+    <li><a href="#journey">Journey</a></li>
+    <li><a href="#built-with">Built with</a></li>
+  </ul>
+  <a class="nav-cta" href="./game.html">Play ↗</a>
+</nav>
+
+<!-- ─── HERO ─────────────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="hero-text">
+    <span class="hero-kicker">A father–daughter project</span>
+    <h1 class="hero-title">We made a<br><em>game together.</em></h1>
+    <p class="hero-body" id="hero-body-text">
+      Best Buds is a neighborhood game built by a dad and his daughter Lillian over evenings and weekends.
+      It started as a simple idea — and became something we're both proud of.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="./game.html">Play the game ↗</a>
+      <a class="btn-secondary" href="#story">Read our story</a>
+    </div>
+  </div>
+  <div class="hero-photo" id="hero-photo-container">
+    <!-- Photo goes here — replace src with your actual photo path -->
+    <div class="hero-photo-placeholder" id="photo-placeholder">
+      <span class="photo-icon">📷</span>
+      <p>Drop your photo here.<br>Update <code>HERO_PHOTO</code> at the top of the script below.</p>
+    </div>
+    <div class="hero-caption" id="hero-caption" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ─── PULL QUOTE ────────────────────────────────────────────────────────────── -->
+<div class="pull-quote-section">
+  <p class="pull-quote" id="pull-quote-text">
+    Dad, can we add more ice cream flavors? Cookie dough is my favorite.
+  </p>
+  <p class="pull-quote-attr" id="pull-quote-attr">— Lillian, age 8</p>
+</div>
+
+<!-- ─── STORY ─────────────────────────────────────────────────────────────────── -->
+<div id="story" class="section-rule">
+  <div class="section">
+    <div class="two-col">
+      <div class="reveal">
+        <span class="label">The idea</span>
+        <h2 class="section-title">A game about<br><em>the two of us.</em></h2>
+      </div>
+      <div class="section-body reveal">
+        <p id="story-text-1">
+          I wanted to make something Lillian and I could play together — not a game downloaded from a store, but one we built ourselves.
+          A neighborhood where both of us exist as characters, with our names, our hair, our outfits.
+        </p>
+        <p id="story-text-2">
+          We started with a small hub world and kept adding things she asked for: a playground with every piece of equipment,
+          an ice cream shop, penalty kicks, tennis rallies. Every feature was Lillian's idea tested on Lillian first.
+        </p>
+        <p id="story-text-3">
+          It runs in a browser, on a phone, anywhere. No install required. Just open it and play.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MEET US ──────────────────────────────────────────────────────────────── -->
+<div class="section-rule" style="background:#fff;">
+  <div class="section">
+    <div class="two-col reverse" style="align-items:center;gap:64px;">
+      <div class="reveal" style="border-radius:4px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.12);">
+        <img src="assets/photos/party1.jpg" alt="Dad and Lillian at a Taylor Swift party" style="width:100%;display:block;object-fit:cover;">
+      </div>
+      <div class="reveal">
+        <span class="label">Meet us</span>
+        <h2 class="section-title" style="margin-bottom:24px;">The best buds<br><em>in real life.</em></h2>
+        <div class="section-body">
+          <p><strong>Chris</strong> is a Software Development Director at Oracle. <strong>Lillian</strong> is a second grader in Orlando, Florida. They have always been, and always will be, Best Buds.</p>
+          <p>Every feature in this game came from a conversation between the two of them. Lillian tested every build, named every location, and approved every design. In her words: <em>"My dad always makes me laugh, and he is always there for me."</em></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── THE WORLD ─────────────────────────────────────────────────────────────── -->
+<div class="section-rule" style="background:#fff;">
+  <div class="section">
+    <span class="label">The world</span>
+    <h2 class="section-title reveal">Explore the neighborhood.</h2>
+    <p class="section-body reveal" style="margin-bottom:0">
+      A 1280×1280 open world. Walk or take the car. Roads lead to every location —
+      the park, the tennis court, the soccer field, the playground, the ice cream shop, and home.
+      The game saves your progress and remembers your customizations.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:1px solid var(--rule);margin-top:56px;">
+      <div style="padding:28px 24px;background:var(--bg);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">🏠</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Home</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">Walk through the door. Watch the stars come out.</div>
+      </div>
+      <div style="padding:28px 24px;background:var(--bg);border-left:1px solid var(--rule);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">🌳</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Park</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">Keepy uppy. Keep the balloon in the air against the wind.</div>
+      </div>
+      <div style="padding:28px 24px;background:var(--bg);border-left:1px solid var(--rule);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">🎾</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Tennis Court</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">Side-view rally. Swing, bounce, score.</div>
+      </div>
+      <div style="padding:28px 24px;background:var(--bg);border-top:1px solid var(--rule);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">⚽</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Soccer Field</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">Penalty kicks. Aim, power, shoot. Roles swap each round.</div>
+      </div>
+      <div style="padding:28px 24px;background:var(--bg);border-left:1px solid var(--rule);border-top:1px solid var(--rule);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">🛝</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Playground</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">Monkey bars, slide, climbing wall, zip line, drawbridge.</div>
+      </div>
+      <div style="padding:28px 24px;background:var(--bg);border-left:1px solid var(--rule);border-top:1px solid var(--rule);" class="reveal">
+        <div style="font-size:1.5rem;margin-bottom:10px;">🍦</div>
+        <div style="font-family:var(--serif);font-weight:700;margin-bottom:6px;">Ice Cream Shop</div>
+        <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.6;">11 flavors. Cone or milkshake. Cookie dough is mandatory.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MINI-GAMES ────────────────────────────────────────────────────────────── -->
+<div id="games" class="section-rule">
+  <div class="section">
+    <span class="label">Mini-games</span>
+    <h2 class="section-title reveal">Five ways to play.</h2>
+
+    <div class="games-grid">
+      <div class="game-card reveal">
+        <span class="game-icon">🎾</span>
+        <div class="game-name">Tennis</div>
+        <p class="game-desc">Side-view rally. Move up and down the court, time your swing, build rally speed. Play against the AI or a second player.</p>
+        <div class="game-tags">
+          <span class="tag">1 or 2 player</span>
+          <span class="tag">Rally</span>
+          <span class="tag">Keyboard + touch</span>
+        </div>
+      </div>
+      <div class="game-card reveal">
+        <span class="game-icon">⚽</span>
+        <div class="game-name">Penalty Kicks</div>
+        <p class="game-desc">Three-step system: position, aim the oscillating arrow, time the power bar. Goalie difficulty scales as the round progresses.</p>
+        <div class="game-tags">
+          <span class="tag">Roles swap</span>
+          <span class="tag">Progressive AI</span>
+        </div>
+      </div>
+      <div class="game-card reveal">
+        <span class="game-icon">🎈</span>
+        <div class="game-name">Keepy Uppy</div>
+        <p class="game-desc">Two characters, one balloon. Keep it in the air as the wind gets stronger every 30 seconds. No game over — just keep going.</p>
+        <div class="game-tags">
+          <span class="tag">Coop</span>
+          <span class="tag">Wind system</span>
+        </div>
+      </div>
+      <div class="game-card reveal">
+        <span class="game-icon">🛝</span>
+        <div class="game-name">Playground</div>
+        <p class="game-desc">Choose who plays. Walk to any piece of equipment — monkey bars, slide, climbing wall, zip line, or the drawbridge — and tap to play.</p>
+        <div class="game-tags">
+          <span class="tag">Exploration</span>
+          <span class="tag">Character choice</span>
+        </div>
+      </div>
+      <div class="game-card reveal">
+        <span class="game-icon">🍦</span>
+        <div class="game-name">Ice Cream Shop</div>
+        <p class="game-desc">Pick cone or milkshake. Choose from 11 flavors including cookie dough, bubblegum, and rainbow. Both characters eat together.</p>
+        <div class="game-tags">
+          <span class="tag">11 flavors</span>
+          <span class="tag">Cone or shake</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── JOURNEY / TIMELINE ────────────────────────────────────────────────────── -->
+<div id="journey" class="section-rule" style="background:#fff;">
+  <div class="section-narrow">
+    <span class="label">How it happened</span>
+    <h2 class="section-title reveal">Two days, start to finish.</h2>
+    <p class="section-body reveal">
+      Every session started with Lillian playing what was there and telling us what was wrong.
+      That feedback loop was the entire design process.
+    </p>
+
+    <div class="timeline">
+
+      <div class="timeline-entry reveal">
+        <div class="timeline-date">Day 1 — Morning</div>
+        <div class="timeline-title">The foundation</div>
+        <div class="timeline-body">We built the hub world, character system, and save manager from scratch. A 1280×1280 open neighborhood with grass, roads, and buildings — both of us as characters you can customize. Every graphic is procedurally drawn: no image files, no sprite sheets.</div>
+        <div class="timeline-quote">
+          "The world view is extremely overwhelming. The graphics look very trashy with each individual square looking like its own piece of land."
+          <cite>— Chris, after the first iteration</cite>
+        </div>
+      </div>
+
+      <div class="timeline-entry reveal">
+        <div class="timeline-date">Day 1 — Afternoon</div>
+        <div class="timeline-title">Characters, mini-games &amp; music</div>
+        <div class="timeline-body">We designed our characters together — 10 hair styles, 8 clothing options, editable names, 5 skin tones, all procedurally drawn. Then we added the mini-games we play in real life: side-view tennis, penalty kicks. Every music theme and sound effect is generated live via Web Audio API — zero external files.</div>
+        <div class="timeline-quote">
+          "Soccer is too hard again in initial stages."
+          <cite>— Lillian</cite>
+        </div>
+      </div>
+
+      <div class="timeline-entry reveal">
+        <div class="timeline-date">Day 1 — Evening</div>
+        <div class="timeline-title">Keepy uppy &amp; the ice cream shop</div>
+        <div class="timeline-body">Balloon physics with wind that builds over time — both of us hitting independently. Then we added our favorite real-life stop: the ice cream shop. Pick a cone or milkshake, choose from 11 flavors, and both characters eat together on screen.</div>
+        <div class="timeline-quote">
+          "Can we add cookie dough? That's my favorite."
+          <cite>— Lillian</cite>
+        </div>
+      </div>
+
+      <div class="timeline-entry reveal">
+        <div class="timeline-date">Day 2 — Morning</div>
+        <div class="timeline-title">The playground</div>
+        <div class="timeline-body">Lillian wanted a real playground — monkey bars, slide, climbing wall, zip line, drawbridge. We built a scrollable 1100px-wide scene where your character actually walks up to each piece of equipment before the animation plays.</div>
+        <div class="timeline-quote">
+          "Park should have monkey bars, slide, rock climbing wall, zip line, and a drawbridge."
+          <cite>— Lillian</cite>
+        </div>
+      </div>
+
+      <div class="timeline-entry reveal">
+        <div class="timeline-date">Day 2 — Afternoon</div>
+        <div class="timeline-title">Polish, fixes &amp; this page</div>
+        <div class="timeline-body">We iterated on everything Lillian flagged — court visuals, character placement, the goalie swap in soccer, a sleep sequence when you go home. Then we built this page to share it. Start to finish: two days.</div>
+        <div class="timeline-quote">
+          "I love my best bud."
+          <cite>— Lillian, age 8</cite>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ─── BUILT WITH ─────────────────────────────────────────────────────────────── -->
+<div id="built-with" class="section-rule">
+  <div class="section">
+    <span class="label">Technical</span>
+    <h2 class="section-title reveal">How it's made.</h2>
+    <p class="section-body reveal">
+      Everything runs in a browser. No backend, no installs, no licensing fees.
+      The entire game — graphics, audio, physics — is generated in code.
+    </p>
+    <div class="tech-row">
+      <div class="tech-item reveal">
+        <div class="tech-name">Phaser 3</div>
+        <div class="tech-desc">Scene management, arcade physics, camera system, tweens.</div>
+      </div>
+      <div class="tech-item reveal">
+        <div class="tech-name">TypeScript</div>
+        <div class="tech-desc">Strict mode. Type-safe scene data, character configs, game state.</div>
+      </div>
+      <div class="tech-item reveal">
+        <div class="tech-name">Vite</div>
+        <div class="tech-desc">Instant HMR during development. Sub-second builds.</div>
+      </div>
+      <div class="tech-item reveal">
+        <div class="tech-name">Web Audio API</div>
+        <div class="tech-desc">Procedural music and SFX. Zero external audio files.</div>
+      </div>
+      <div class="tech-item reveal">
+        <div class="tech-name">Pure Graphics</div>
+        <div class="tech-desc">No sprite sheets. Every character and building drawn with Phaser's Graphics API.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PLAY CTA ────────────────────────────────────────────────────────────────── -->
+<section id="play">
+  <span class="play-label">Ready</span>
+  <h2>Come play with us.</h2>
+  <p>Works in any modern browser. On your phone, tablet, or computer.</p>
+  <a class="btn-play" href="./game.html">Play Best Buds ↗</a>
+</section>
+
+<!-- ─── GITHUB ────────────────────────────────────────────────────────────────── -->
+<div class="section-rule" style="background:#fff;">
+  <div class="section-narrow" style="text-align:center;">
+    <span class="label">Open source</span>
+    <h2 class="section-title reveal" style="margin-bottom:16px;">See how it's built.</h2>
+    <p class="section-body reveal" style="margin-bottom:32px;">
+      The full source code is on GitHub. The repository is read-only — you're welcome to fork it and build your own version, but the original stays ours.
+    </p>
+    <a class="btn-secondary reveal" href="https://github.com/gurleyc1/best-buds" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub ↗
+    </a>
+  </div>
+</div>
+
+<!-- ─── FOOTER ─────────────────────────────────────────────────────────────────── -->
+<footer>
+  <p>Best Buds — made with love by Chris &amp; Lillian</p>
+  <p id="footer-year"></p>
+</footer>
+
+<!-- ─── CONTENT CONFIG + SCRIPT ──────────────────────────────────────────────── -->
+<script>
+  /* ════════════════════════════════════════════════════════════════════
+   *  CONTENT — edit these values to personalise the page
+   * ════════════════════════════════════════════════════════════════════ */
+  const CONTENT = {
+    // Hero photo: path relative to this file, e.g. 'photos/us.jpg'
+    // Leave empty to show the placeholder.
+    HERO_PHOTO: 'assets/photos/hero.jpg',
+
+    // Caption shown over the bottom of the photo
+    HERO_CAPTION: 'Lillian & Chris — the real Best Buds',
+
+    // Opening sentence under the hero title
+    HERO_BODY: 'Best Buds is a neighborhood game we built together in two days — a dad and his 8-year-old daughter, using the latest AI tools to turn ideas into something real.',
+
+    // Pull quote + attribution
+    PULL_QUOTE: "I love my best bud.",
+    PULL_QUOTE_ATTR: '— Lillian, age 8',
+
+    // Story section paragraphs
+    STORY_1: 'Chris and Lillian have always called themselves Best Buds. Chris is a Software Development Director at Oracle; Lillian is a second grader in Orlando. Together they wanted to experience what\'s possible when you combine a big idea, a curious kid, and the latest AI-assisted development tools.',
+    STORY_2: 'The goal was never a polished product. It was to feel the rapid pace of what\'s possible together: describing ideas, watching them come to life in real time, and playing the result. Every activity in the game is something we love doing together — tennis, soccer, the playground, ice cream runs.',
+    STORY_3: 'We built the whole thing in two days. Hub world, mini-games, custom characters, procedural music — all of it. Lillian drove the direction. AI did the heavy lifting. And every decision was ours.',
+  };
+  /* ════════════════════════════════════════════════════════════════════ */
+
+
+  // Apply content to the DOM
+  document.getElementById('hero-body-text').textContent       = CONTENT.HERO_BODY;
+  document.getElementById('pull-quote-text').textContent      = CONTENT.PULL_QUOTE;
+  document.getElementById('pull-quote-attr').textContent      = CONTENT.PULL_QUOTE_ATTR;
+  document.getElementById('story-text-1').textContent         = CONTENT.STORY_1;
+  document.getElementById('story-text-2').textContent         = CONTENT.STORY_2;
+  document.getElementById('story-text-3').textContent         = CONTENT.STORY_3;
+  document.getElementById('footer-year').textContent          = '© ' + new Date().getFullYear();
+
+  // Hero photo
+  if (CONTENT.HERO_PHOTO) {
+    const container = document.getElementById('hero-photo-container');
+    document.getElementById('photo-placeholder').remove();
+    const img = document.createElement('img');
+    img.src = CONTENT.HERO_PHOTO;
+    img.alt = 'Dad and Lillian';
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:center top;';
+    container.insertBefore(img, container.firstChild);
+    if (CONTENT.HERO_CAPTION) {
+      const cap = document.getElementById('hero-caption');
+      cap.textContent = CONTENT.HERO_CAPTION;
+      cap.style.display = '';
+    }
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 60);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Active nav highlight
+  const sections = document.querySelectorAll('section[id], div[id]');
+  const navLinks = document.querySelectorAll('nav ul a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + current ? 'var(--accent)' : '';
+    });
+  }, { passive: true });
+</script>
+
+</body>
+</html>

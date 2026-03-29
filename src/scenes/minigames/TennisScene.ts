@@ -9,8 +9,8 @@ export class TennisScene extends BaseMiniGameScene {
   protected gameName = 'tennis';
 
   // ── Court constants ────────────────────────────────────────────────────────
-  private readonly FLOOR_Y = Math.round(GAME_HEIGHT * 0.55);   // top of court floor
-  private readonly CEILING_Y = 60;                              // court top boundary
+  private readonly FLOOR_Y = Math.round(GAME_HEIGHT * 0.80);   // court surface / ball bounce line
+  private readonly CEILING_Y = 200;                             // upper player/ball boundary
   private readonly LEFT_WALL = 10;
   private readonly RIGHT_WALL = GAME_WIDTH - 10;
   private readonly NET_X = GAME_WIDTH / 2;
@@ -81,7 +81,7 @@ export class TennisScene extends BaseMiniGameScene {
 
   constructor() {
     super({ key: 'TennisScene' });
-    this.NET_TOP_Y = Math.round(GAME_HEIGHT * 0.55) - 60;
+    this.NET_TOP_Y = Math.round(GAME_HEIGHT * 0.80) - 90;
   }
 
   create(data?: { returnX?: number; returnY?: number }): void {
@@ -101,8 +101,8 @@ export class TennisScene extends BaseMiniGameScene {
     this.servingPlayer = 1;
     this.twoPlayer = false;
 
-    this.dadY = this.FLOOR_Y - 30;
-    this.lillianY = this.FLOOR_Y - 30;
+    this.dadY = this.FLOOR_Y - 40;
+    this.lillianY = this.FLOOR_Y - 40;
 
     const state = SaveManager.load();
     this.dadName = state.dadConfig.name || 'Dad';
@@ -114,6 +114,7 @@ export class TennisScene extends BaseMiniGameScene {
     this.createControlBar();
     this.createSwingArc();
     this.setupInput();
+    this.setupEscapeKey();
     this.showStartScreen();
     MusicManager.playTheme('tennis');
     MusicManager.sfx('start');
@@ -123,38 +124,47 @@ export class TennisScene extends BaseMiniGameScene {
 
   private createCourt(): void {
     const g = this.add.graphics();
+    const COURT_TOP = 80;   // where green court starts
+    const cLeft  = 24;
+    const cRight = GAME_WIDTH - 24;
 
-    // Sky gradient (two-band approximation)
-    g.fillStyle(0x4a90d9);
-    g.fillRect(0, 0, GAME_WIDTH, this.FLOOR_Y);
-    g.fillStyle(0x87ceeb);
-    g.fillRect(0, 0, GAME_WIDTH, this.FLOOR_Y * 0.5);
+    // Narrow sky strip at very top
+    g.fillStyle(0x5aaae0);
+    g.fillRect(0, 0, GAME_WIDTH, COURT_TOP);
 
-    // Court floor — green hard court
-    g.fillStyle(0x3a7d3a);
-    g.fillRect(0, this.FLOOR_Y, GAME_WIDTH, GAME_HEIGHT - this.FLOOR_Y);
+    // Thin fence / back-wall strip
+    g.fillStyle(0x1a5c1a);
+    g.fillRect(0, COURT_TOP, GAME_WIDTH, 8);
 
-    // Court markings — white baseline and service line
-    g.lineStyle(2, 0xffffff, 0.8);
-    // Baselines
-    g.lineBetween(this.LEFT_WALL + 20, this.FLOOR_Y + 8, this.RIGHT_WALL - 20, this.FLOOR_Y + 8);
-    g.lineBetween(this.LEFT_WALL + 20, GAME_HEIGHT - 12, this.RIGHT_WALL - 20, GAME_HEIGHT - 12);
+    // Green court — fills everything from fence to bottom of canvas
+    g.fillStyle(0x2e7d32);
+    g.fillRect(0, COURT_TOP + 8, GAME_WIDTH, GAME_HEIGHT - (COURT_TOP + 8));
+
+    // Court boundary lines (white)
+    g.lineStyle(2, 0xffffff, 0.75);
+    // Top of playing area (ceiling line)
+    g.lineBetween(cLeft, this.CEILING_Y, cRight, this.CEILING_Y);
     // Sidelines
-    g.lineBetween(this.LEFT_WALL + 20, this.FLOOR_Y + 8, this.LEFT_WALL + 20, GAME_HEIGHT - 12);
-    g.lineBetween(this.RIGHT_WALL - 20, this.FLOOR_Y + 8, this.RIGHT_WALL - 20, GAME_HEIGHT - 12);
-    // Service lines (half-court)
-    const serviceY = this.FLOOR_Y + (GAME_HEIGHT - this.FLOOR_Y) * 0.4;
-    g.lineBetween(this.LEFT_WALL + 20, serviceY, this.RIGHT_WALL - 20, serviceY);
-    // Centre service line
-    g.lineBetween(this.NET_X, this.FLOOR_Y + 8, this.NET_X, serviceY);
+    g.lineBetween(cLeft,  this.CEILING_Y, cLeft,  this.FLOOR_Y);
+    g.lineBetween(cRight, this.CEILING_Y, cRight, this.FLOOR_Y);
+    // Baseline at floor
+    g.lineBetween(cLeft, this.FLOOR_Y, cRight, this.FLOOR_Y);
+    // Service boxes
+    const svcY = this.CEILING_Y + (this.FLOOR_Y - this.CEILING_Y) * 0.45;
+    g.lineBetween(cLeft, svcY, cRight, svcY);
+    g.lineBetween(this.NET_X, this.CEILING_Y, this.NET_X, svcY);
 
-    // Net — white rectangle from floor to NET_TOP_Y
-    g.fillStyle(0xffffff, 0.95);
+    // Net posts
+    g.fillStyle(0xcccccc);
+    g.fillRect(cLeft  - 2, this.NET_TOP_Y - 4, 5, this.FLOOR_Y - this.NET_TOP_Y + 4);
+    g.fillRect(cRight - 3, this.NET_TOP_Y - 4, 5, this.FLOOR_Y - this.NET_TOP_Y + 4);
+
+    // Net — narrow vertical strip at center
+    g.fillStyle(0xffffff, 0.92);
     g.fillRect(this.NET_X - this.NET_HALF_W, this.NET_TOP_Y, this.NET_HALF_W * 2, this.FLOOR_Y - this.NET_TOP_Y);
     // Net top band
-    g.fillStyle(0xdddddd, 1);
-    g.fillRect(this.NET_X - this.NET_HALF_W - 2, this.NET_TOP_Y, this.NET_HALF_W * 2 + 4, 6);
-
+    g.fillStyle(0xdddddd);
+    g.fillRect(this.NET_X - this.NET_HALF_W - 2, this.NET_TOP_Y - 4, this.NET_HALF_W * 2 + 4, 6);
     // Net mesh lines
     g.lineStyle(1, 0xaaaaaa, 0.5);
     for (let ny = this.NET_TOP_Y; ny < this.FLOOR_Y; ny += 10) {
@@ -324,7 +334,7 @@ export class TennisScene extends BaseMiniGameScene {
   private launchBall(): void {
     const dir = this.servingPlayer === 1 ? 1 : -1;
     this.ballVX = this.rallySpeed * dir;
-    this.ballVY = -120;
+    this.ballVY = -200;
     this.pointInProgress = true;
   }
 
@@ -433,7 +443,7 @@ export class TennisScene extends BaseMiniGameScene {
     const diff = this.ballY - this.lillianY;
     if (Math.abs(diff) > 8) {
       this.lillianY += Math.sign(diff) * Math.min(Math.abs(diff), AI_SPEED * delta / 1000);
-      this.lillianY = Phaser.Math.Clamp(this.lillianY, this.CEILING_Y + 30, this.FLOOR_Y - 10);
+      this.lillianY = Phaser.Math.Clamp(this.lillianY, this.CEILING_Y + 60, this.FLOOR_Y - 40);
     }
 
     if (!this.pointInProgress) return;
@@ -466,10 +476,10 @@ export class TennisScene extends BaseMiniGameScene {
   private updateLillian2P(delta: number): void {
     const SPEED = 220;
     if (this.keyI?.isDown) {
-      this.lillianY = Phaser.Math.Clamp(this.lillianY - SPEED * delta / 1000, this.CEILING_Y + 30, this.FLOOR_Y - 10);
+      this.lillianY = Phaser.Math.Clamp(this.lillianY - SPEED * delta / 1000, this.CEILING_Y + 60, this.FLOOR_Y - 40);
     }
     if (this.keyK?.isDown) {
-      this.lillianY = Phaser.Math.Clamp(this.lillianY + SPEED * delta / 1000, this.CEILING_Y + 30, this.FLOOR_Y - 10);
+      this.lillianY = Phaser.Math.Clamp(this.lillianY + SPEED * delta / 1000, this.CEILING_Y + 60, this.FLOOR_Y - 40);
     }
     if (this.keyN && Phaser.Input.Keyboard.JustDown(this.keyN)) {
       this.trySwing(2);
@@ -515,6 +525,7 @@ export class TennisScene extends BaseMiniGameScene {
   // ─── Update ────────────────────────────────────────────────────────────────
 
   update(_time: number, delta: number): void {
+    this.checkEscape();
     if (!this.gameActive) return;
 
     const dt = delta / 1000;
@@ -522,10 +533,10 @@ export class TennisScene extends BaseMiniGameScene {
 
     // ── Dad movement (UP/DOWN arrows or W/S) ──────────────────────────────
     if (this.keyUp?.isDown || this.keyW?.isDown) {
-      this.dadY = Phaser.Math.Clamp(this.dadY - PLAYER_SPEED * dt, this.CEILING_Y + 30, this.FLOOR_Y - 10);
+      this.dadY = Phaser.Math.Clamp(this.dadY - PLAYER_SPEED * dt, this.CEILING_Y + 60, this.FLOOR_Y - 40);
     }
     if (this.keyDown?.isDown || this.keyS?.isDown) {
-      this.dadY = Phaser.Math.Clamp(this.dadY + PLAYER_SPEED * dt, this.CEILING_Y + 30, this.FLOOR_Y - 10);
+      this.dadY = Phaser.Math.Clamp(this.dadY + PLAYER_SPEED * dt, this.CEILING_Y + 60, this.FLOOR_Y - 40);
     }
 
     // ── Dad swing (SPACE) ────────────────────────────────────────────────

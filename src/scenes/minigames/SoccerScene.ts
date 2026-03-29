@@ -52,7 +52,8 @@ export class SoccerScene extends BaseMiniGameScene {
   private ballGfx!: Phaser.GameObjects.Graphics;
   private aimArrow!: Phaser.GameObjects.Graphics;
   private powerBarGfx!: Phaser.GameObjects.Graphics;
-  private goalieGfx!: Phaser.GameObjects.Container;
+  private goalieGfx!: Phaser.GameObjects.Container;    // Lillian as goalie
+  private dadGoalieGfx!: Phaser.GameObjects.Container; // Dad as goalie
   private kicksText!: Phaser.GameObjects.Text;
   private roundText!: Phaser.GameObjects.Text;
 
@@ -99,6 +100,7 @@ export class SoccerScene extends BaseMiniGameScene {
     this.createHUD(`${this.dadName} Goals`, `${this.lillianName} Goals`);
     this.createUI();
     this.setupInput();
+    this.setupEscapeKey();
     this.startRound();
     MusicManager.playTheme('soccer');
     MusicManager.sfx('start');
@@ -163,10 +165,14 @@ export class SoccerScene extends BaseMiniGameScene {
     const state = SaveManager.load();
     this.goalieX = GAME_WIDTH / 2;
     this.goalieGfx = CharacterRenderer.create(
-      this, this.goalieX, this.GOAL_Y + 35,
-      state.lillianConfig, 1.2
+      this, this.goalieX, this.GOAL_Y + 35, state.lillianConfig, 1.2
     );
     this.goalieGfx.setDepth(5);
+    this.dadGoalieGfx = CharacterRenderer.create(
+      this, this.goalieX, this.GOAL_Y + 35, state.dadConfig, 1.2
+    );
+    this.dadGoalieGfx.setDepth(5);
+    this.dadGoalieGfx.setVisible(false);
   }
 
   private createCharacters(): void {
@@ -263,6 +269,7 @@ export class SoccerScene extends BaseMiniGameScene {
 
     this.goalieX = GAME_WIDTH / 2;
     this.goalieGfx.setPosition(this.goalieX, this.GOAL_Y + 35);
+    this.dadGoalieGfx.setPosition(this.goalieX, this.GOAL_Y + 35);
 
     this.aimArrow.setVisible(false);
     this.powerBarGfx.setVisible(false);
@@ -270,16 +277,16 @@ export class SoccerScene extends BaseMiniGameScene {
     // Update which character is at penalty spot vs in goal
     if (this.isPlayerShooting) {
       // Dad shoots, Lillian is goalie
-      this.dadContainer.setVisible(true);
-      this.dadContainer.setPosition(this.shooterX, this.PENALTY_Y + 50);
-      this.goalieGfx.setVisible(true); // Lillian in goal
+      this.dadContainer.setVisible(true).setPosition(this.shooterX, this.PENALTY_Y + 50);
+      this.lillianContainer.setVisible(false);
+      this.goalieGfx.setVisible(true).setPosition(GAME_WIDTH / 2, this.GOAL_Y + 35);
+      this.dadGoalieGfx.setVisible(false);
     } else {
-      // Lillian shoots - swap: show Lillian at penalty spot, Dad in goal
-      this.dadContainer.setVisible(false); // hide Dad from penalty spot
-      this.goalieGfx.setVisible(false);   // hide Lillian from goal
-      // Lillian's container is watching from side - move it to penalty spot
-      this.lillianContainer.setPosition(this.shooterX, this.PENALTY_Y + 50);
-      // Could add a Dad-in-goal figure here but for now just show Lillian shooting
+      // Lillian shoots, Dad is goalie
+      this.lillianContainer.setVisible(true).setPosition(this.shooterX, this.PENALTY_Y + 50);
+      this.dadContainer.setVisible(false);
+      this.dadGoalieGfx.setVisible(true).setPosition(GAME_WIDTH / 2, this.GOAL_Y + 35);
+      this.goalieGfx.setVisible(false);
     }
 
     this.kicksText.setText('Kicks: ' + this.kicksRemaining);
@@ -351,12 +358,13 @@ export class SoccerScene extends BaseMiniGameScene {
         );
         goalieTarget = Phaser.Math.Clamp(goalieTarget, this.GOAL_LEFT + 10, this.GOAL_RIGHT - 10);
         this.goalieTargetX = goalieTarget;
+        const activeGoalie = this.isPlayerShooting ? this.goalieGfx : this.dadGoalieGfx;
         this.tweens.add({
-          targets: this.goalieGfx,
+          targets: activeGoalie,
           x: goalieTarget,
           duration: 350,
           ease: 'Power3',
-          onUpdate: () => { this.goalieX = this.goalieGfx.x; },
+          onUpdate: () => { this.goalieX = activeGoalie.x; },
         });
       });
     }
@@ -522,6 +530,7 @@ export class SoccerScene extends BaseMiniGameScene {
   }
 
   update(_time: number, delta: number): void {
+    this.checkEscape();
     if (this.stepState === 'end' || this.stepState === 'result') return;
     const dt = delta / 1000;
 

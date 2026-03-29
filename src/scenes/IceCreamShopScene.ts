@@ -9,18 +9,21 @@ interface Flavor {
   name: string;
   color: number;
   label: string;
-  special?: 'mintchip' | 'rainbow';
+  special?: 'mintchip' | 'rainbow' | 'cookiedough';
 }
 
 const FLAVORS: Flavor[] = [
-  { name: 'strawberry', label: 'Strawberry', color: 0xff69b4 },
-  { name: 'chocolate',  label: 'Chocolate',  color: 0x5d4037 },
-  { name: 'vanilla',    label: 'Vanilla',    color: 0xfff8dc },
-  { name: 'mintchip',   label: 'Mint Chip',  color: 0x98fb98, special: 'mintchip' },
-  { name: 'lemon',      label: 'Lemon',      color: 0xffd700 },
-  { name: 'blueberry',  label: 'Blueberry',  color: 0x6a5acd },
-  { name: 'watermelon', label: 'Watermelon', color: 0xff4444 },
-  { name: 'rainbow',    label: 'Rainbow',    color: 0xff69b4, special: 'rainbow' },
+  { name: 'strawberry',  label: 'Strawberry',   color: 0xff69b4 },
+  { name: 'chocolate',   label: 'Chocolate',    color: 0x5d4037 },
+  { name: 'vanilla',     label: 'Vanilla',      color: 0xfff8dc },
+  { name: 'mintchip',    label: 'Mint Chip',    color: 0x98fb98, special: 'mintchip' },
+  { name: 'lemon',       label: 'Lemon',        color: 0xffd700 },
+  { name: 'blueberry',   label: 'Blueberry',    color: 0x6a5acd },
+  { name: 'watermelon',  label: 'Watermelon',   color: 0xff4444 },
+  { name: 'rainbow',     label: 'Rainbow',      color: 0xff69b4, special: 'rainbow' },
+  { name: 'cookiedough', label: 'Cookie Dough', color: 0xd4a843, special: 'cookiedough' },
+  { name: 'bubblegum',   label: 'Bubblegum',    color: 0xffb3de },
+  { name: 'caramel',     label: 'Caramel',      color: 0xc87941 },
 ];
 
 export class IceCreamShopScene extends Phaser.Scene {
@@ -32,7 +35,9 @@ export class IceCreamShopScene extends Phaser.Scene {
   private flavorButtons: Phaser.GameObjects.Container[] = [];
   private coneGraphic: Phaser.GameObjects.Container | null = null;
   private actionButtons: Phaser.GameObjects.Container | null = null;
-  private phase: 'enter' | 'choose' | 'eating' = 'enter';
+  private phase: 'enter' | 'choose_container' | 'choose' | 'eating' = 'enter';
+  private containerType: 'cone' | 'milkshake' = 'cone';
+  private containerBtns: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'IceCreamShopScene' });
@@ -41,10 +46,12 @@ export class IceCreamShopScene extends Phaser.Scene {
   create(data?: { returnX?: number; returnY?: number }): void {
     this.sceneData = data ?? {};
     this.phase = 'enter';
+    this.containerType = 'cone';
     this.flavorButtons = [];
     this.speechBubble = null;
     this.coneGraphic = null;
     this.actionButtons = null;
+    this.containerBtns = null;
 
     SceneTransition.fadeIn(this, 300);
     MusicManager.resume();
@@ -275,7 +282,6 @@ export class IceCreamShopScene extends Phaser.Scene {
   // ─── Enter Sequence ───────────────────────────────────────────────────────────
 
   private runEnterSequence(): void {
-    // Walk characters in from the left
     this.tweens.add({
       targets: [this.dadContainer, this.lillianContainer],
       x: (target: Phaser.GameObjects.Container) =>
@@ -283,42 +289,94 @@ export class IceCreamShopScene extends Phaser.Scene {
       duration: 800, ease: 'Quad.Out',
       onComplete: () => {
         this.time.delayedCall(200, () => {
-          this.showSpeech(this.dadContainer, 'What flavor do you want?', () => {
-            this.showFlavorButtons();
+          this.showSpeech(this.dadContainer, 'Cone or milkshake?', () => {
+            this.showContainerChoice();
           });
         });
       },
     });
   }
 
+  private showContainerChoice(): void {
+    this.phase = 'choose_container';
+    if (this.containerBtns) { this.containerBtns.destroy(); this.containerBtns = null; }
+    const c = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT * 0.42).setDepth(25);
+    this.containerBtns = c;
+
+    const makeChoice = (label: string, icon: string, bx: number, type: 'cone' | 'milkshake', color: number): void => {
+      const bg = this.add.graphics();
+      bg.fillStyle(color, 0.9);
+      bg.fillRoundedRect(bx - 66, -44, 132, 88, 14);
+      bg.lineStyle(3, 0xffffff, 0.8);
+      bg.strokeRoundedRect(bx - 66, -44, 132, 88, 14);
+      const iconTxt = this.add.text(bx, -16, icon, { fontSize: '32px' }).setOrigin(0.5);
+      const labelTxt = this.add.text(bx, 22, label, {
+        fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
+        stroke: '#00000066', strokeThickness: 2,
+      }).setOrigin(0.5);
+      const zone = this.add.zone(bx, 0, 132, 88).setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => {
+        if (this.phase !== 'choose_container') return;
+        this.containerType = type;
+        MusicManager.sfx('select');
+        this.tweens.add({ targets: c, alpha: 0, duration: 200, onComplete: () => {
+          c.destroy(); this.containerBtns = null;
+          this.showFlavorButtons();
+        }});
+      });
+      zone.on('pointerover', () => this.tweens.add({ targets: [bg], alpha: 0.7, duration: 80 }));
+      zone.on('pointerout',  () => this.tweens.add({ targets: [bg], alpha: 1.0, duration: 80 }));
+      c.add([bg, iconTxt, labelTxt, zone]);
+    };
+
+    makeChoice('Cone', '🍦', -80, 'cone', 0xff69b4);
+    makeChoice('Milkshake', '🥤', 80, 'milkshake', 0x9b59b6);
+
+    c.setScale(0);
+    this.tweens.add({ targets: c, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out' });
+  }
+
   // ─── Flavor Buttons ───────────────────────────────────────────────────────────
 
   private showFlavorButtons(): void {
     this.phase = 'choose';
+    // 4 cols × 3 rows to fit 11 flavors (last spot empty)
     const cols = 4;
-    const rows = 2;
-    const startX = 60;
-    const startY = GAME_HEIGHT * 0.3;
-    const spacingX = (GAME_WIDTH - 80) / (cols - 1);
-    const spacingY = 110;
+    const startX = 52;
+    const startY = GAME_HEIGHT * 0.27;
+    const spacingX = (GAME_WIDTH - 64) / (cols - 1);
+    const spacingY = 105;
+
+    // Container-type label
+    const label = this.add.text(GAME_WIDTH / 2, startY - 30,
+      `${this.containerType === 'cone' ? '🍦 Cone' : '🥤 Milkshake'} — pick a flavor!`, {
+        fontSize: '14px', color: '#1a1a2e',
+        backgroundColor: '#ffffffcc', padding: { x: 8, y: 4 },
+      }).setOrigin(0.5).setDepth(20);
+    this.flavorButtons.push(label as unknown as Phaser.GameObjects.Container);
 
     FLAVORS.forEach((flavor, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const fx = startX + col * spacingX;
       const fy = startY + row * spacingY;
-
       const btn = this.makeScoopButton(fx, fy, flavor);
       this.flavorButtons.push(btn);
     });
   }
 
   private makeScoopButton(x: number, y: number, flavor: Flavor): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y).setDepth(20);
     const RADIUS = 30;
+    const container = this.add.container(x, y).setDepth(20)
+      .setSize(RADIUS * 2 + 20, RADIUS * 2 + 30)
+      .setInteractive({ useHandCursor: true });
 
     const g = this.add.graphics();
-    this.drawScoop(g, 0, 0, RADIUS, flavor);
+    if (this.containerType === 'milkshake') {
+      this.drawMilkshake(g, 0, 0, RADIUS * 0.75, flavor);
+    } else {
+      this.drawScoop(g, 0, 0, RADIUS, flavor);
+    }
     container.add(g);
 
     // Label
@@ -328,18 +386,13 @@ export class IceCreamShopScene extends Phaser.Scene {
     }).setOrigin(0.5);
     container.add(label);
 
-    // Hit area
-    const hitCircle = this.add.circle(0, 0, RADIUS + 6, 0xffffff, 0)
-      .setInteractive(new Phaser.Geom.Circle(0, 0, RADIUS + 6), Phaser.Geom.Circle.Contains);
-    container.add(hitCircle);
-
-    hitCircle.on('pointerover', () => {
+    container.on('pointerover', () => {
       this.tweens.add({ targets: container, scaleX: 1.12, scaleY: 1.12, duration: 100 });
     });
-    hitCircle.on('pointerout', () => {
+    container.on('pointerout', () => {
       this.tweens.add({ targets: container, scaleX: 1, scaleY: 1, duration: 100 });
     });
-    hitCircle.on('pointerdown', () => {
+    container.on('pointerdown', () => {
       if (this.phase === 'choose') this.selectFlavor(flavor, container);
     });
 
@@ -386,13 +439,56 @@ export class IceCreamShopScene extends Phaser.Scene {
     if (flavor.special === 'mintchip') {
       // Dark chocolate chips
       g.fillStyle(0x3e2723);
-      const chips: [number, number][] = [
-        [-8, -5], [5, -12], [-3, 8], [10, 5], [-12, 2],
-      ];
-      chips.forEach(([ox, oy]) => {
-        g.fillEllipse(cx + ox, cy + oy, 6, 4);
-      });
+      const chips: [number, number][] = [[-8, -5], [5, -12], [-3, 8], [10, 5], [-12, 2]];
+      chips.forEach(([ox, oy]) => g.fillEllipse(cx + ox, cy + oy, 6, 4));
     }
+
+    if (flavor.special === 'cookiedough') {
+      // Cookie dough chunks (tan with dark spots)
+      g.fillStyle(0x8b6914);
+      const chunks: [number, number][] = [[-9, -6], [6, -11], [-4, 6], [11, 3], [-11, 3]];
+      chunks.forEach(([ox, oy]) => g.fillRoundedRect(cx + ox - 3, cy + oy - 3, 7, 7, 2));
+      g.fillStyle(0x3e2723);
+      chunks.forEach(([ox, oy]) => g.fillCircle(cx + ox, cy + oy, 1.5));
+    }
+  }
+
+  private drawMilkshake(
+    g: Phaser.GameObjects.Graphics, cx: number, cy: number,
+    r: number, flavor: Flavor
+  ): void {
+    // Cup body (slightly narrower at bottom)
+    g.fillStyle(0xffffff, 0.9);
+    g.fillTriangle(cx - r * 0.7, cy + r * 1.2, cx + r * 0.7, cy + r * 1.2, cx + r * 0.5, cy + r * 2.0);
+    g.fillTriangle(cx - r * 0.7, cy + r * 1.2, cx - r * 0.5, cy + r * 2.0, cx + r * 0.5, cy + r * 2.0);
+    g.fillRect(cx - r * 0.7, cy + r * 0.1, r * 1.4, r * 1.1);
+
+    // Liquid fill (flavor color)
+    g.fillStyle(flavor.special === 'rainbow' ? 0xff69b4 : flavor.color, 0.85);
+    g.fillRect(cx - r * 0.65, cy + r * 0.2, r * 1.3, r * 1.0);
+
+    // Whipped cream dome on top
+    g.fillStyle(0xfffde7);
+    g.fillCircle(cx, cy, r * 0.85);
+    g.fillCircle(cx - r * 0.4, cy + r * 0.1, r * 0.55);
+    g.fillCircle(cx + r * 0.4, cy + r * 0.1, r * 0.55);
+
+    // Cherry
+    g.fillStyle(0xe74c3c);
+    g.fillCircle(cx, cy - r * 0.6, r * 0.22);
+    g.lineStyle(1, 0x2d5a1b, 1);
+    g.lineBetween(cx, cy - r * 0.38, cx + r * 0.3, cy - r * 0.9);
+
+    // Straw
+    g.fillStyle(0xff69b4);
+    g.fillRect(cx + r * 0.25, cy - r * 1.6, r * 0.15, r * 1.8);
+    g.fillStyle(0xffffff);
+    g.fillRect(cx + r * 0.3, cy - r * 1.6, r * 0.06, r * 1.8);
+
+    // Cup stripes/label
+    g.lineStyle(1.5, 0xcccccc, 0.6);
+    g.lineBetween(cx - r * 0.6, cy + r * 0.5, cx - r * 0.6, cy + r * 1.1);
+    g.lineBetween(cx + r * 0.6, cy + r * 0.5, cx + r * 0.6, cy + r * 1.1);
   }
 
   // ─── Select Flavor ───────────────────────────────────────────────────────────
@@ -422,24 +518,57 @@ export class IceCreamShopScene extends Phaser.Scene {
     });
   }
 
+  private dadConeGraphic: Phaser.GameObjects.Container | null = null;
+  private lillianConeGraphic: Phaser.GameObjects.Container | null = null;
+
   private showCharacterWithCone(flavor: Flavor): void {
-    // Draw cone next to dad character
-    if (this.coneGraphic) this.coneGraphic.destroy();
-    const cx = this.dadContainer.x + 28;
-    const cy = this.dadContainer.y - 20;
-    const cg = this.add.graphics().setDepth(12);
-    this.drawScoop(cg, 0, 0, 20, flavor);
-    this.coneGraphic = this.add.container(cx, cy).setDepth(12);
-    this.coneGraphic.add(cg);
+    if (this.coneGraphic) { this.coneGraphic.destroy(); this.coneGraphic = null; }
+    if (this.dadConeGraphic) { this.dadConeGraphic.destroy(); this.dadConeGraphic = null; }
+    if (this.lillianConeGraphic) { this.lillianConeGraphic.destroy(); this.lillianConeGraphic = null; }
 
-    // Bounce cone in
-    this.coneGraphic.setScale(0);
-    this.tweens.add({ targets: this.coneGraphic, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out' });
+    // Move characters apart slightly so they both show eating
+    this.tweens.add({
+      targets: this.dadContainer,
+      x: GAME_WIDTH / 2 - 80, duration: 300, ease: 'Quad.Out',
+    });
+    this.tweens.add({
+      targets: this.lillianContainer,
+      x: GAME_WIDTH / 2 + 80, duration: 300, ease: 'Quad.Out',
+    });
 
-    // Speech bubble
-    const playerName = SaveManager.load().dadConfig.name;
-    this.showSpeech(this.dadContainer, `${playerName} loves ${flavor.label}! Yummy! 🍦`, () => {
-      this.time.delayedCall(300, () => this.showGoAgainButtons());
+    this.time.delayedCall(320, () => {
+      const isMilkshake = this.containerType === 'milkshake';
+
+      // Dad's treat
+      const dadCg = this.add.graphics().setDepth(12);
+      if (isMilkshake) { this.drawMilkshake(dadCg, 0, 0, 14, flavor); }
+      else { this.drawScoop(dadCg, 0, 0, 18, flavor); }
+      this.dadConeGraphic = this.add.container(this.dadContainer.x + 32, this.dadContainer.y - 28).setDepth(12);
+      this.dadConeGraphic.add(dadCg);
+      this.dadConeGraphic.setScale(0);
+      this.tweens.add({ targets: this.dadConeGraphic, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out' });
+
+      // Lillian's treat
+      const lillianCg = this.add.graphics().setDepth(12);
+      if (isMilkshake) { this.drawMilkshake(lillianCg, 0, 0, 12, flavor); }
+      else { this.drawScoop(lillianCg, 0, 0, 16, flavor); }
+      this.lillianConeGraphic = this.add.container(this.lillianContainer.x - 28, this.lillianContainer.y - 24).setDepth(12);
+      this.lillianConeGraphic.add(lillianCg);
+      this.lillianConeGraphic.setScale(0);
+      this.tweens.add({ targets: this.lillianConeGraphic, scaleX: 1, scaleY: 1, duration: 300, ease: 'Back.Out', delay: 120 });
+
+      // Eating bob animation for both characters
+      this.tweens.add({
+        targets: [this.dadContainer, this.lillianContainer],
+        y: '-=6', yoyo: true, repeat: 4, duration: 200,
+      });
+
+      const state = SaveManager.load();
+      const lillianName = state.lillianConfig.name || 'Lillian';
+      const treat = this.containerType === 'milkshake' ? `${flavor.label} shake!` : `${flavor.label} cone!`;
+      this.showSpeech(this.lillianContainer, `${lillianName}: Mmm, ${treat} 😋`, () => {
+        this.time.delayedCall(300, () => this.showGoAgainButtons());
+      });
     });
   }
 
@@ -474,9 +603,16 @@ export class IceCreamShopScene extends Phaser.Scene {
     makeBtnGraphic('Go again?', -80, 0xff69b4, () => {
       if (this.actionButtons) { this.actionButtons.destroy(); this.actionButtons = null; }
       if (this.coneGraphic) { this.coneGraphic.destroy(); this.coneGraphic = null; }
+      if ((this as any).dadConeGraphic) { (this as any).dadConeGraphic.destroy(); (this as any).dadConeGraphic = null; }
+      if ((this as any).lillianConeGraphic) { (this as any).lillianConeGraphic.destroy(); (this as any).lillianConeGraphic = null; }
       if (this.speechBubble) { this.speechBubble.destroy(); this.speechBubble = null; }
-      this.phase = 'choose';
-      this.showFlavorButtons();
+      // Return characters to center
+      this.tweens.add({ targets: this.dadContainer, x: GAME_WIDTH / 2 - 40, duration: 200 });
+      this.tweens.add({ targets: this.lillianContainer, x: GAME_WIDTH / 2 + 40, duration: 200 });
+      this.phase = 'enter';
+      this.showSpeech(this.dadContainer, 'Cone or milkshake?', () => {
+        this.showContainerChoice();
+      });
     });
 
     makeBtnGraphic('Head home', 80, 0x3498db, () => {
