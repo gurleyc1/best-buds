@@ -815,6 +815,164 @@
   </div>
 </div>
 
+<!-- ─── POLL ───────────────────────────────────────────────────────────────────── -->
+<div class="main-wrap">
+  <div class="section-narrow">
+    <span class="label">You decide</span>
+    <h2 class="section-title reveal" style="margin-bottom:8px;">What should we build next?</h2>
+    <p class="section-body reveal" style="margin-bottom:32px;">Vote for the next activity to add to Best Buds. One vote per person.</p>
+
+    <div id="poll-widget" style="max-width:480px;margin:0 auto;">
+      <p style="color:var(--ink-soft);font-size:0.9rem;">Loading votes…</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .poll-option {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+  .poll-option.voted-for .poll-bar-fill { background: var(--accent); }
+  .poll-label-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--sans); font-size: 0.95rem; font-weight: 500;
+  }
+  .poll-count { font-size: 0.82rem; color: var(--ink-soft); }
+  .poll-track {
+    height: 10px; background: var(--rule); border-radius: 99px; overflow: hidden;
+  }
+  .poll-bar-fill {
+    height: 100%; background: var(--accent-2); border-radius: 99px;
+    transition: width 0.5s ease;
+  }
+  .poll-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 6px; padding: 10px 24px;
+    background: var(--accent); color: #fff;
+    font-family: var(--sans); font-size: 0.88rem; font-weight: 600;
+    border: none; border-radius: 4px; cursor: pointer;
+    transition: background .2s;
+  }
+  .poll-btn:hover { background: #b84e2a; }
+  .poll-btn:disabled { background: #aaa; cursor: default; }
+  .poll-voted-msg {
+    font-size: 0.88rem; color: var(--accent-2); font-weight: 500; margin-top: 12px;
+  }
+</style>
+
+<script>
+(function() {
+  const REPO    = 'gurleyc1/best-buds';
+  const TOKEN   = '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';
+  const LS_KEY  = 'bb_poll_voted_v1';
+  const OPTIONS = [
+    { label: '🎳 Bowling',          id: 4150522909 },
+    { label: '🏊 Swimming',         id: 4150522929 },
+    { label: '⛳ Mini Golf',         id: 4150522955 },
+    { label: '🎣 Fishing',          id: 4150522984 },
+    { label: '🎲 Board Game Night', id: 4150523013 },
+    { label: '🚴 Bike Ride',        id: 4150523049 },
+    { label: '🏐 Volleyball',       id: 4150524844 },
+    { label: '🏀 Basketball',       id: 4150524918 },
+    { label: '🏃 Running Race',     id: 4150524966 },
+  ];
+
+  const container  = document.getElementById('poll-widget');
+  const alreadyVoted = localStorage.getItem(LS_KEY);
+
+  async function fetchCounts() {
+    const counts = await Promise.all(OPTIONS.map(async opt => {
+      const res = await fetch(
+        `https://api.github.com/repos/${REPO}/issues/comments/${opt.id}/reactions`,
+        { headers: { Accept: 'application/vnd.github.squirrel-girl-preview+json' } }
+      );
+      const data = await res.json();
+      return Array.isArray(data) ? data.filter(r => r.content === '+1').length : 0;
+    }));
+    return counts;
+  }
+
+  async function castVote(optionIndex) {
+    const btn = document.getElementById('poll-submit');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    const opt = OPTIONS[optionIndex];
+    try {
+      await fetch(
+        `https://api.github.com/repos/${REPO}/issues/comments/${opt.id}/reactions`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `token ${TOKEN}`,
+            Accept: 'application/vnd.github.squirrel-girl-preview+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: '+1' }),
+        }
+      );
+      localStorage.setItem(LS_KEY, String(optionIndex));
+      await render(String(optionIndex));
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = 'Submit Vote';
+    }
+  }
+
+  async function render(votedIndex) {
+    const counts = await fetchCounts();
+    const total  = counts.reduce((a, b) => a + b, 0);
+    const hasVoted = votedIndex !== null && votedIndex !== undefined;
+
+    let selected = hasVoted ? null : null;
+
+    const sorted = OPTIONS.map((opt, i) => ({ ...opt, count: counts[i], index: i }));
+
+    let html = '';
+    OPTIONS.forEach((opt, i) => {
+      const count = counts[i];
+      const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+      const isChosen = String(i) === String(votedIndex);
+      html += `
+        <div class="poll-option${isChosen ? ' voted-for' : ''}" data-index="${i}" id="poll-opt-${i}">
+          <div class="poll-label-row">
+            <span>${opt.label}${isChosen ? ' ✓' : ''}</span>
+            <span class="poll-count">${hasVoted ? count + ' vote' + (count !== 1 ? 's' : '') + ' · ' + pct + '%' : ''}</span>
+          </div>
+          <div class="poll-track"><div class="poll-bar-fill" style="width:${hasVoted ? pct : 0}%"></div></div>
+        </div>`;
+    });
+
+    if (!hasVoted) {
+      html += `<button class="poll-btn" id="poll-submit" disabled>Submit Vote</button>`;
+    } else {
+      html += `<p class="poll-voted-msg">Thanks for voting! Results update live.</p>`;
+    }
+
+    container.innerHTML = html;
+
+    if (!hasVoted) {
+      let selectedIndex = null;
+      document.querySelectorAll('.poll-option').forEach(el => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('.poll-option').forEach(e => e.style.outline = '');
+          el.style.outline = '2px solid var(--accent)';
+          el.style.borderRadius = '4px';
+          selectedIndex = parseInt(el.dataset.index);
+          document.getElementById('poll-submit').disabled = false;
+        });
+      });
+      document.getElementById('poll-submit').addEventListener('click', () => {
+        if (selectedIndex !== null) castVote(selectedIndex);
+      });
+    }
+  }
+
+  render(alreadyVoted);
+})();
+</script>
+
 <!-- ─── FEEDBACK ──────────────────────────────────────────────────────────────── -->
 <div class="main-wrap">
   <div class="section-narrow">
