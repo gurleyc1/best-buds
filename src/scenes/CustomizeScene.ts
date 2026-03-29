@@ -152,6 +152,7 @@ export class CustomizeScene extends Phaser.Scene {
 
   private buildOptions(): void {
     // Clear old options
+    this.removeNameInput();
     this.optionObjects.forEach(o => o.destroy());
     this.optionObjects = [];
     this.contentContainer.removeAll(false);
