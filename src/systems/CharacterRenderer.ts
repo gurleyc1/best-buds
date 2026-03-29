@@ -157,6 +157,9 @@ export class CharacterRenderer {
     g.closePath();
     g.fillPath();
 
+    // ── Hair (drawn BEFORE face so eyes always render on top) ────────────
+    drawHair(g, config.hairStyle, config.hairColor, headCY, headR, scale, isDad);
+
     // ── Face features ─────────────────────────────────────────────────────
     const eyeY      = headCY - headR * 0.1;
     const eyeSpacing = headR * 0.42;
@@ -218,9 +221,6 @@ export class CharacterRenderer {
         g.fillCircle(p.x, p.y, dotR);
       }
     }
-
-    // ── Hair ──────────────────────────────────────────────────────────────
-    drawHair(g, config.hairStyle, config.hairColor, headCY, headR, scale, isDad);
 
     // ── Accessory ─────────────────────────────────────────────────────────
     drawAccessory(g, config.accessory, headCY, headR, scale, config.hairColor);
@@ -298,6 +298,29 @@ function drawClothing(
         -bodyW * 0.28, dressTopY + bodyH * 0.18,
          bodyW * 0.28, dressTopY + bodyH * 0.18
       );
+      // hem accent band at bottom 20% of dress in bottomColor
+      const hemH_simple = dressH * 0.2;
+      const hemY_simple = dressBot - hemH_simple;
+      const hemBotHalfW_simple = botHalfW;
+      const hemTopHalfW_simple = botHalfW * (1 - 0.2 * (botHalfW - topHalfW) / dressH * dressH / dressH);
+      g.fillStyle(bottomColor);
+      g.fillTriangle(
+        -hemTopHalfW_simple, hemY_simple,
+         hemTopHalfW_simple, hemY_simple,
+        -hemBotHalfW_simple, dressBot
+      );
+      g.fillTriangle(
+        hemTopHalfW_simple, hemY_simple,
+        hemBotHalfW_simple, dressBot,
+       -hemBotHalfW_simple, dressBot
+      );
+      // dark edge of hem
+      g.fillStyle(darken(bottomColor, 0.75));
+      g.fillTriangle(
+        hemTopHalfW_simple * 0.2, hemY_simple,
+        hemBotHalfW_simple * 1.1, dressBot,
+        hemBotHalfW_simple,       dressBot
+      );
 
     } else if (style === 'dress_floral') {
       // Wider flared A-line with dot pattern
@@ -348,6 +371,41 @@ function drawClothing(
         -bodyW * 0.28, dressTopY + bodyH * 0.18,
          bodyW * 0.28, dressTopY + bodyH * 0.18
       );
+      // hem accent band at bottom 20% of dress in bottomColor
+      const hemH_floral = dressH * 0.2;
+      const hemY_floral = dressBot - hemH_floral;
+      g.fillStyle(darken(bottomColor, 0.75));
+      g.fillTriangle(
+        botHalfW * 0.05, hemY_floral,
+        botHalfW * 1.1,  dressBot,
+        botHalfW,        dressBot
+      );
+      g.fillStyle(bottomColor);
+      g.fillTriangle(
+        -botHalfW, hemY_floral,
+         botHalfW, hemY_floral,
+        -botHalfW, dressBot
+      );
+      g.fillTriangle(
+        botHalfW, hemY_floral,
+        botHalfW, dressBot,
+       -botHalfW, dressBot
+      );
+      // dots in lighter bottomColor on the hem
+      const hemDotColor = lighten(bottomColor, 1.4);
+      g.fillStyle(hemDotColor, 0.75);
+      const hemDotR = Math.max(1, scale * 0.9);
+      const hemDotPositions = [
+        { x: -bodyW * 0.3, y: hemY_floral + hemH_floral * 0.35 },
+        { x:  bodyW * 0.1, y: hemY_floral + hemH_floral * 0.3  },
+        { x:  bodyW * 0.45, y: hemY_floral + hemH_floral * 0.55 },
+        { x: -bodyW * 0.5, y: hemY_floral + hemH_floral * 0.6  },
+        { x:  bodyW * 0.25, y: hemY_floral + hemH_floral * 0.75 },
+        { x: -bodyW * 0.1, y: hemY_floral + hemH_floral * 0.8  },
+      ];
+      for (const d of hemDotPositions) {
+        g.fillCircle(d.x, d.y, hemDotR);
+      }
 
     } else if (style === 'dress_sundress') {
       // Wide flared with spaghetti straps
@@ -387,6 +445,27 @@ function drawClothing(
         0,             dressTopY,
         -bodyW * 0.22, dressTopY + bodyH * 0.14,
          bodyW * 0.22, dressTopY + bodyH * 0.14
+      );
+      // hem accent band at bottom 20% of dress in bottomColor
+      const hemH_sun = dressH * 0.2;
+      const hemY_sun = dressBot - hemH_sun;
+      const sunBotHalfW = botHalfW;
+      g.fillStyle(darken(bottomColor, 0.75));
+      g.fillTriangle(
+        sunBotHalfW * 0.05, hemY_sun,
+        sunBotHalfW * 1.1,  dressBot,
+        sunBotHalfW,        dressBot
+      );
+      g.fillStyle(bottomColor);
+      g.fillTriangle(
+        -sunBotHalfW, hemY_sun,
+         sunBotHalfW, hemY_sun,
+        -sunBotHalfW, dressBot
+      );
+      g.fillTriangle(
+        sunBotHalfW, hemY_sun,
+        sunBotHalfW, dressBot,
+       -sunBotHalfW, dressBot
       );
 
     } else if (style === 'skirt_top') {
@@ -437,6 +516,27 @@ function drawClothing(
       // waistband
       g.fillStyle(darken(bottomColor, 0.65));
       g.fillRect(-bodyW / 2, midY - waistH, bodyW, waistH);
+      // hem accent band at bottom 20% of skirt in topColor (ribbon/sash)
+      const skirtHemH = skirtH * 0.2;
+      const skirtHemY = skirtBot - skirtHemH;
+      const skirtHemTopW = skirtTopW + (skirtBotW - skirtTopW) * 0.8;
+      g.fillStyle(darken(topColor, 0.75));
+      g.fillTriangle(
+        skirtHemTopW * 0.1, skirtHemY,
+        skirtBotW * 1.1,    skirtBot,
+        skirtBotW,          skirtBot
+      );
+      g.fillStyle(topColor);
+      g.fillTriangle(
+        -skirtHemTopW, skirtHemY,
+         skirtHemTopW, skirtHemY,
+        -skirtBotW,    skirtBot
+      );
+      g.fillTriangle(
+        skirtHemTopW, skirtHemY,
+        skirtBotW,    skirtBot,
+       -skirtBotW,    skirtBot
+      );
       void skirtH;
     }
 
@@ -655,19 +755,23 @@ function drawHair(
   const hl  = lighten(color, 1.4);   // highlight streak color
   const shd = darken(color, 0.72);   // shadow color
 
-  // Helper: fill the top dome of the head in hair color
+  // Helper: fill the top dome of the head in hair color.
+  // The dome center is shifted up by `headR * 0.5` so the flat bottom edge
+  // of the semicircle lands around headCY - headR * 0.5, well above the eye
+  // line (which is at headCY - headR * 0.1). This keeps hair off the face.
   function hairDome(radiusMult = 1.06): void {
+    const domeCY = headCY - headR * 0.5;
     g.fillStyle(color);
-    fillTopSemicircle(g, 0, headCY, headR * radiusMult);
+    fillTopSemicircle(g, 0, domeCY, headR * radiusMult);
 
     // highlight streak across upper-left of dome
     g.fillStyle(hl);
-    g.fillEllipse(-headR * 0.25, headCY - headR * 0.65, headR * 0.3, headR * 0.18);
+    g.fillEllipse(-headR * 0.25, domeCY - headR * 0.45, headR * 0.3, headR * 0.18);
 
     // shadow on right side of dome
     g.fillStyle(shd);
     g.beginPath();
-    g.arc(0, headCY, headR * radiusMult, -Math.PI * 0.45, 0, false);
+    g.arc(0, domeCY, headR * radiusMult, -Math.PI * 0.45, 0, false);
     g.closePath();
     g.fillPath();
   }

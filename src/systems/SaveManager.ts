@@ -4,6 +4,7 @@ const SAVE_KEY = 'best_buds_save';
 
 const defaultDad: CharacterConfig = {
   id: 'dad',
+  name: 'Dad',
   skinTone: 0xf4c5a1,
   hairStyle: 'short_messy',
   hairColor: 0x212121,
@@ -16,6 +17,7 @@ const defaultDad: CharacterConfig = {
 
 const defaultLillian: CharacterConfig = {
   id: 'lillian',
+  name: 'Lillian',
   skinTone: 0xfde0c8,
   hairStyle: 'long_braids',
   hairColor: 0xf4d03f,

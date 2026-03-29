@@ -7,8 +7,9 @@ import { CustomizeScene } from './scenes/CustomizeScene';
 import { HubScene } from './scenes/HubScene';
 import { TennisScene } from './scenes/minigames/TennisScene';
 import { SoccerScene } from './scenes/minigames/SoccerScene';
-import { MarbleRunScene } from './scenes/minigames/MarbleRunScene';
 import { KeepyUppyScene } from './scenes/minigames/KeepyUppyScene';
+import { PlaygroundScene } from './scenes/PlaygroundScene';
+import { IceCreamShopScene } from './scenes/IceCreamShopScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -27,7 +28,8 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [
     BootScene, PreloadScene, MainMenuScene, CustomizeScene,
-    HubScene, TennisScene, SoccerScene, MarbleRunScene, KeepyUppyScene,
+    HubScene, TennisScene, SoccerScene, KeepyUppyScene,
+    PlaygroundScene, IceCreamShopScene,
   ],
 };
 

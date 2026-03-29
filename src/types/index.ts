@@ -1,5 +1,6 @@
 export interface CharacterConfig {
   id: 'dad' | 'lillian';
+  name: string;
   skinTone: number;
   hairStyle: string;
   hairColor: number;

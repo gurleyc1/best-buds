@@ -95,8 +95,9 @@ export const SCENE_KEYS = {
   HUB: 'HubScene',
   TENNIS: 'TennisScene',
   SOCCER: 'SoccerScene',
-  MARBLE_RUN: 'MarbleRunScene',
   KEEPY_UPPY: 'KeepyUppyScene',
+  PLAYGROUND: 'PlaygroundScene',
+  ICE_CREAM: 'IceCreamShopScene',
 };
 
 export const LOCATIONS = {

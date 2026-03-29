@@ -4,6 +4,7 @@ import { CharacterRenderer } from '../../systems/CharacterRenderer';
 import { SaveManager } from '../../systems/SaveManager';
 import { BaseMiniGameScene } from './BaseMiniGameScene';
 import { SceneTransition } from '../../systems/SceneTransition';
+import { MusicManager } from '../../systems/MusicManager';
 
 type KickStep = 'move' | 'aim' | 'power' | 'kick' | 'result' | 'end';
 
@@ -43,6 +44,8 @@ export class SoccerScene extends BaseMiniGameScene {
   private kicksRemaining = 5;
   private isPlayerShooting = true;
   private round = 1;
+  private dadName = 'Dad';
+  private lillianName = 'Lillian';
 
   private dadContainer!: Phaser.GameObjects.Container;
   private lillianContainer!: Phaser.GameObjects.Container;
@@ -67,7 +70,14 @@ export class SoccerScene extends BaseMiniGameScene {
 
   constructor() { super({ key: 'SoccerScene' }); }
 
-  create(): void {
+  private get difficultyFactor(): number {
+    // Starts at 0.4 (easy), increases to 1.0 by kick 5
+    const kicksTaken = 5 - this.kicksRemaining;
+    return 0.4 + (kicksTaken / 5) * 0.6;
+  }
+
+  create(data?: { returnX?: number; returnY?: number }): void {
+    this.captureReturnData(data);
     this.score1 = 0;
     this.score2 = 0;
     this.dadGoals = 0;
@@ -79,13 +89,19 @@ export class SoccerScene extends BaseMiniGameScene {
     this.transitioning = false;
     this.ballTrail = [];
 
+    const state = SaveManager.load();
+    this.dadName = state.dadConfig.name || 'Dad';
+    this.lillianName = state.lillianConfig.name || 'Lillian';
+
     this.createField();
     this.createGoalie();
     this.createCharacters();
-    this.createHUD('Dad Goals', 'Lillian Goals');
+    this.createHUD(`${this.dadName} Goals`, `${this.lillianName} Goals`);
     this.createUI();
     this.setupInput();
     this.startRound();
+    MusicManager.playTheme('soccer');
+    MusicManager.sfx('start');
   }
 
   private createField(): void {
@@ -174,7 +190,7 @@ export class SoccerScene extends BaseMiniGameScene {
       fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(101);
 
-    this.roundText = this.add.text(GAME_WIDTH / 2, 80, 'Round 1 - Dad Shoots', {
+    this.roundText = this.add.text(GAME_WIDTH / 2, 80, `Round 1 - ${this.dadName} Shoots`, {
       fontSize: '13px', color: '#aaffaa',
     }).setOrigin(0.5).setDepth(101);
 
@@ -267,7 +283,7 @@ export class SoccerScene extends BaseMiniGameScene {
     }
 
     this.kicksText.setText('Kicks: ' + this.kicksRemaining);
-    this.roundText.setText('Round ' + this.round + (this.isPlayerShooting ? ' — Dad shoots' : ' — Lillian shoots'));
+    this.roundText.setText('Round ' + this.round + (this.isPlayerShooting ? ` — ${this.dadName} shoots` : ` — ${this.lillianName} shoots`));
 
     this.highlightStep(1);
   }
@@ -302,33 +318,32 @@ export class SoccerScene extends BaseMiniGameScene {
     this.ballVX = (dx / dist) * speed;
     this.ballVY = (dy / dist) * speed;
 
-    // Goalie has a 200ms reaction delay after ball is kicked
+    // Goalie reaction — difficulty scales from easy (kick 1) to hard (kick 5)
     if (this.isPlayerShooting) {
       const shotTargetX = targetX;
-      this.time.delayedCall(200, () => {
+      const df = this.difficultyFactor;
+      const reactionDelay = 200 + (1 - df) * 300; // 500ms early → 200ms later
+      this.time.delayedCall(reactionDelay, () => {
         if (this.stepState !== 'kick') return;
         this.goalieMoving = true;
-        // Goalie can only cover 70% of goal width — add positional error
-        const reachRange = this.GOAL_WIDTH * 0.7;
-        // Error is smaller now — goalie is sharper, corners still beatable (~45%)
+        // Goalie max reach grows with difficulty
+        const reachRange = this.GOAL_WIDTH * (0.4 + df * 0.3);
         const distFromCenter = Math.abs(shotTargetX - GAME_WIDTH / 2) / (this.GOAL_WIDTH / 2);
-        // Corner shots: ~55% save (45% success for player)
-        // Center shots: ~95% save (5% success for player)
-        const cornerMissChance = 0.45;
+        // Corner miss chance: starts at 0.70 (easy, player has 70% success), drops to 0.45 (hard)
+        const cornerMissChance = 0.7 - df * 0.25;
         const errorScale = distFromCenter > 0.6
-          ? cornerMissChance          // corner — moderate error
-          : 0.05;                     // center — almost always saved
+          ? cornerMissChance
+          : 0.05;
         const errorOffset = (Math.random() - 0.5) * this.GOAL_WIDTH * errorScale;
         let goalieTarget = shotTargetX + errorOffset;
-        // Clamp to reachable range — goalie moves at 240px/s toward the ball
-        const travelTime = 0.35; // seconds of tween
+        // Clamp to reachable range
+        const travelTime = 0.35;
         const maxReach = 240 * travelTime;
         goalieTarget = Phaser.Math.Clamp(
           goalieTarget,
           this.goalieX - maxReach,
           this.goalieX + maxReach
         );
-        // Also clamp to 70% coverage window around the shot
         goalieTarget = Phaser.Math.Clamp(
           goalieTarget,
           shotTargetX - reachRange / 2,
@@ -388,7 +403,12 @@ export class SoccerScene extends BaseMiniGameScene {
 
   private showResult(text: string, color: number, isGoal: boolean): void {
     if (isGoal) {
+      MusicManager.sfx('goal');
       this.spawnGoalParticles();
+    } else if (text === 'SAVED!') {
+      MusicManager.sfx('saved');
+    } else {
+      MusicManager.sfx('miss');
     }
 
     const fontSize = isGoal ? '60px' : '52px';
@@ -470,16 +490,16 @@ export class SoccerScene extends BaseMiniGameScene {
     bg.setDepth(300);
 
     const winner = this.dadGoals > this.lillianGoals
-      ? 'Dad wins!'
+      ? `${this.dadName} wins!`
       : this.lillianGoals > this.dadGoals
-        ? 'Lillian wins!'
+        ? `${this.lillianName} wins!`
         : "It's a tie!";
 
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, winner, {
       fontSize: '32px', color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(301);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, `Dad: ${this.dadGoals}  Lillian: ${this.lillianGoals}`, {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, `${this.dadName}: ${this.dadGoals}  ${this.lillianName}: ${this.lillianGoals}`, {
       fontSize: '22px', color: '#ffffff',
     }).setOrigin(0.5).setDepth(301);
 
@@ -496,7 +516,7 @@ export class SoccerScene extends BaseMiniGameScene {
     homeBtn.on('pointerdown', () => {
       if (!this.transitioning) {
         this.transitioning = true;
-        SceneTransition.switchScene(this, 'HubScene');
+        this.exitToHub();
       }
     });
   }

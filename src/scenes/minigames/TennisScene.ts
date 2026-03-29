@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../../config';
 import { CharacterRenderer } from '../../systems/CharacterRenderer';
 import { SaveManager } from '../../systems/SaveManager';
 import { BaseMiniGameScene } from './BaseMiniGameScene';
+import { MusicManager } from '../../systems/MusicManager';
 
 export class TennisScene extends BaseMiniGameScene {
   protected gameName = 'tennis';
@@ -53,6 +54,13 @@ export class TennisScene extends BaseMiniGameScene {
   // ── 2P mode ───────────────────────────────────────────────────────────────
   private twoPlayer = false;
 
+  // ── Net hit counter (stuck-ball fix) ─────────────────────────────────────
+  private netHits = 0;
+
+  // ── Character names ───────────────────────────────────────────────────────
+  private dadName = 'Dad';
+  private lillianName = 'Lillian';
+
   // ── Graphics / containers ─────────────────────────────────────────────────
   private ballGfx!: Phaser.GameObjects.Graphics;
   private swingArc!: Phaser.GameObjects.Graphics;
@@ -76,7 +84,8 @@ export class TennisScene extends BaseMiniGameScene {
     this.NET_TOP_Y = Math.round(GAME_HEIGHT * 0.55) - 60;
   }
 
-  create(): void {
+  create(data?: { returnX?: number; returnY?: number }): void {
+    this.captureReturnData(data);
     this.score1 = 0;
     this.score2 = 0;
     this.rallySpeed = 280;
@@ -95,13 +104,19 @@ export class TennisScene extends BaseMiniGameScene {
     this.dadY = this.FLOOR_Y - 30;
     this.lillianY = this.FLOOR_Y - 30;
 
+    const state = SaveManager.load();
+    this.dadName = state.dadConfig.name || 'Dad';
+    this.lillianName = state.lillianConfig.name || 'Lillian';
+
     this.createCourt();
     this.createCharacters();
-    this.createHUD('Dad', 'Lillian');
+    this.createHUD(this.dadName, this.lillianName);
     this.createControlBar();
     this.createSwingArc();
     this.setupInput();
     this.showStartScreen();
+    MusicManager.playTheme('tennis');
+    MusicManager.sfx('start');
   }
 
   // ─── Court ─────────────────────────────────────────────────────────────────
@@ -268,6 +283,7 @@ export class TennisScene extends BaseMiniGameScene {
     this.aiSwingQueued = false;
     this.dadSwinging = false;
     this.lillianSwinging = false;
+    this.netHits = 0;
 
     // Place ball at server's racket
     if (this.servingPlayer === 1) {
@@ -344,6 +360,8 @@ export class TennisScene extends BaseMiniGameScene {
   }
 
   private deflectBall(player: 1 | 2, px: number, py: number): void {
+    MusicManager.sfx('hit');
+    this.netHits = 0; // successful hit resets net counter
     // Increase rally speed
     this.rallySpeed = Math.min(this.MAX_RALLY_SPEED, this.rallySpeed + this.RALLY_INCREMENT);
 
@@ -463,10 +481,11 @@ export class TennisScene extends BaseMiniGameScene {
   private scorePoint(player: 1 | 2): void {
     if (!this.pointInProgress) return;
     this.pointInProgress = false;
+    MusicManager.sfx('point');
     this.addScore(player);
     this.servingPlayer = player === 1 ? 2 : 1;
 
-    const label = player === 1 ? 'Point — Dad!' : 'Point — Lillian!';
+    const label = player === 1 ? `Point — ${this.dadName}!` : `Point — ${this.lillianName}!`;
     this.showPointBanner(label);
 
     this.time.delayedCall(1500, () => {
@@ -561,6 +580,7 @@ export class TennisScene extends BaseMiniGameScene {
     if (this.ballY + this.BALL_R > this.FLOOR_Y) {
       this.ballY = this.FLOOR_Y - this.BALL_R;
       this.ballVY = -Math.abs(this.ballVY) * this.BOUNCE_Y;
+      MusicManager.sfx('bounce');
 
       // Dust puff
       const puff = this.add.graphics();
@@ -581,6 +601,7 @@ export class TennisScene extends BaseMiniGameScene {
 
     // ── Net collision ────────────────────────────────────────────────────
     if (this.ballY + this.BALL_R > this.NET_TOP_Y) {
+      let hitNet = false;
       if (this.ballVX > 0
         && this.ballX + this.BALL_R >= this.NET_X - this.NET_HALF_W
         && this.ballX < this.NET_X) {
@@ -588,6 +609,7 @@ export class TennisScene extends BaseMiniGameScene {
         this.ballX = this.NET_X - this.NET_HALF_W - this.BALL_R;
         this.ballVX = -Math.abs(this.ballVX) * 0.45;
         this.ballVY *= 0.75;
+        hitNet = true;
       } else if (this.ballVX < 0
         && this.ballX - this.BALL_R <= this.NET_X + this.NET_HALF_W
         && this.ballX > this.NET_X) {
@@ -595,7 +617,40 @@ export class TennisScene extends BaseMiniGameScene {
         this.ballX = this.NET_X + this.NET_HALF_W + this.BALL_R;
         this.ballVX = Math.abs(this.ballVX) * 0.45;
         this.ballVY *= 0.75;
+        hitNet = true;
       }
+
+      if (hitNet) {
+        this.netHits++;
+        if (this.netHits >= 2) {
+          this.netHits = 0;
+          this.pointInProgress = false;
+          const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
+            fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
+            stroke: '#000', strokeThickness: 4,
+          }).setOrigin(0.5).setDepth(210);
+          this.time.delayedCall(1200, () => {
+            fault.destroy();
+            if (this.gameActive) this.beginServe();
+          });
+        }
+      }
+    }
+
+    // ── Stuck-ball minimum speed check near net ───────────────────────────
+    if (this.pointInProgress
+      && Math.abs(this.ballX - this.NET_X) < 30
+      && Math.abs(this.ballVX) + Math.abs(this.ballVY) < 50) {
+      this.netHits = 0;
+      this.pointInProgress = false;
+      const fault = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Net Fault!', {
+        fontSize: '28px', color: '#ff8800', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 4,
+      }).setOrigin(0.5).setDepth(210);
+      this.time.delayedCall(1200, () => {
+        fault.destroy();
+        if (this.gameActive) this.beginServe();
+      });
     }
 
     // ── Out of bounds scoring ────────────────────────────────────────────
@@ -644,6 +699,7 @@ export class TennisScene extends BaseMiniGameScene {
   protected async exitToHub(): Promise<void> {
     this.transitioning = true;
     this.gameActive = false;
+    MusicManager.stopMusic();
     await super.exitToHub();
   }
 }

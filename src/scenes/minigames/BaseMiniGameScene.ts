@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SCENE_KEYS, COLORS, GAME_WIDTH, GAME_HEIGHT } from '../../config';
 import { SaveManager } from '../../systems/SaveManager';
 import { SceneTransition } from '../../systems/SceneTransition';
+import { MusicManager } from '../../systems/MusicManager';
 
 export abstract class BaseMiniGameScene extends Phaser.Scene {
   protected score1 = 0;
@@ -11,6 +12,12 @@ export abstract class BaseMiniGameScene extends Phaser.Scene {
   protected scoreText1!: Phaser.GameObjects.Text;
   protected scoreText2!: Phaser.GameObjects.Text;
   protected abstract gameName: string;
+
+  protected sceneData: { returnX?: number; returnY?: number } = {};
+
+  protected captureReturnData(data?: { returnX?: number; returnY?: number }): void {
+    this.sceneData = data ?? {};
+  }
 
   protected createHUD(label1: string, label2 = ''): void {
     const hudBg = this.add.graphics();
@@ -51,6 +58,7 @@ export abstract class BaseMiniGameScene extends Phaser.Scene {
   }
 
   protected showCelebration(message: string): void {
+    MusicManager.sfx('celebrate');
     const txt = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, message, {
       fontSize: '32px', color: '#ffd700', fontStyle: 'bold',
       stroke: '#1a1a2e', strokeThickness: 5,
@@ -64,8 +72,9 @@ export abstract class BaseMiniGameScene extends Phaser.Scene {
   }
 
   protected async exitToHub(): Promise<void> {
+    MusicManager.stopMusic();
     SaveManager.updateScore(this.gameName, Math.max(this.score1, this.score2));
     await SceneTransition.fadeOut(this, 300);
-    this.scene.start(SCENE_KEYS.HUB);
+    this.scene.start(SCENE_KEYS.HUB, this.sceneData);
   }
 }

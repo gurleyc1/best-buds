@@ -3,6 +3,7 @@ import { COLORS, GAME_WIDTH, GAME_HEIGHT } from '../../config';
 import { CharacterRenderer } from '../../systems/CharacterRenderer';
 import { SaveManager } from '../../systems/SaveManager';
 import { BaseMiniGameScene } from './BaseMiniGameScene';
+import { MusicManager } from '../../systems/MusicManager';
 
 // Character hit-zone constants
 const CHAR_WIDTH_RANGE = 80;   // horizontal radius around character for hit detection
@@ -40,6 +41,10 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   private dadContainer!: Phaser.GameObjects.Container;
   private lillianContainer!: Phaser.GameObjects.Container;
 
+  // Character names
+  private dadName = 'Dad';
+  private lillianName = 'Lillian';
+
   // Keyboard keys
   private keyLeft!: Phaser.Input.Keyboard.Key;
   private keyRight!: Phaser.Input.Keyboard.Key;
@@ -52,7 +57,8 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   //  Lifecycle
   // ─────────────────────────────────────────────────────────────────────────────
 
-  create(): void {
+  create(data?: { returnX?: number; returnY?: number }): void {
+    this.captureReturnData(data);
     // Reset state
     this.score1    = 0;
     this.hits      = 0;
@@ -67,12 +73,17 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     this.dadX      = 80;
     this.lillianX  = GAME_WIDTH - 80;
 
+    const state = SaveManager.load();
+    this.dadName = state.dadConfig.name || 'Dad';
+    this.lillianName = state.lillianConfig.name || 'Lillian';
+
     this.createBackground();
     this.createCharacters();
     this.createHUD('Hits');
     this.createBallAndUI();
     this.setupInput();
     this.gameActive = true;
+    MusicManager.playTheme('keepy');
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -168,7 +179,7 @@ export class KeepyUppyScene extends BaseMiniGameScene {
 
     // Instruction footer
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 30,
-      'Tap left = move Dad  |  Tap right = move Lillian',
+      `Tap left = move ${this.dadName}  |  Tap right = move ${this.lillianName}`,
       {
         fontSize: '12px', color: '#ffffff',
         backgroundColor: '#00000066', padding: { x: 8, y: 3 },
@@ -290,6 +301,7 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   }
 
   private hitBalloon(tapX: number): void {
+    MusicManager.sfx('balloon');
     this.hits++;
     this.score1 = this.hits;
     this.scoreText1?.setText(String(this.hits));
@@ -326,6 +338,9 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     // Increase wind strength every 30 s, max 2.5
     if (this.windTimer >= 30) {
       this.windTimer = 0;
+      if (this.windValue < 2.5) {
+        MusicManager.sfx('wind');
+      }
       this.windValue = Math.min(2.5, this.windValue + 0.3);
     }
 

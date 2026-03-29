@@ -8,6 +8,7 @@ import { CharacterConfig } from '../types';
 import { CharacterRenderer } from '../systems/CharacterRenderer';
 import { SaveManager } from '../systems/SaveManager';
 import { SceneTransition } from '../systems/SceneTransition';
+import { MusicManager } from '../systems/MusicManager';
 
 export class CustomizeScene extends Phaser.Scene {
   private dadConfig!: CharacterConfig;
@@ -21,11 +22,13 @@ export class CustomizeScene extends Phaser.Scene {
   private tabLillian!: Phaser.GameObjects.Graphics;
   private tabDadText!: Phaser.GameObjects.Text;
   private tabLillianText!: Phaser.GameObjects.Text;
+  private nameInput: HTMLInputElement | null = null;
 
   constructor() { super({ key: SCENE_KEYS.CUSTOMIZE }); }
 
   create(): void {
     SceneTransition.fadeIn(this, 300);
+    MusicManager.resume(); // Don't restart hub music if already playing
     const state = SaveManager.load();
     this.dadConfig = { ...state.dadConfig };
     this.lillianConfig = { ...state.lillianConfig };
@@ -82,11 +85,11 @@ export class CustomizeScene extends Phaser.Scene {
 
     const dadZone = this.add.zone(GAME_WIDTH / 2 - tabW - 4, tabY + tabH / 2, tabW + 16, tabH)
       .setInteractive({ useHandCursor: true });
-    dadZone.on('pointerdown', () => { this.activeTab = 'dad'; this.scrollY = 0; this.updateTabs(); this.refreshPreview(); this.buildOptions(); });
+    dadZone.on('pointerdown', () => { this.removeNameInput(); this.activeTab = 'dad'; this.scrollY = 0; this.updateTabs(); this.refreshPreview(); this.buildOptions(); });
 
     const lillianZone = this.add.zone(GAME_WIDTH / 2 + tabW / 2 + 4, tabY + tabH / 2, tabW + 16, tabH)
       .setInteractive({ useHandCursor: true });
-    lillianZone.on('pointerdown', () => { this.activeTab = 'lillian'; this.scrollY = 0; this.updateTabs(); this.refreshPreview(); this.buildOptions(); });
+    lillianZone.on('pointerdown', () => { this.removeNameInput(); this.activeTab = 'lillian'; this.scrollY = 0; this.updateTabs(); this.refreshPreview(); this.buildOptions(); });
   }
 
   private updateTabs(): void {
@@ -159,16 +162,76 @@ export class CustomizeScene extends Phaser.Scene {
     let yOff = 10;
     const panelW = GAME_WIDTH - 192;
 
+    yOff = this.buildNameSection(yOff, cfg);
     yOff = this.buildHairStyleSection(yOff, panelW, cfg);
     yOff = this.buildClothingStyleSection(yOff, panelW, cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'HAIR COLOR', HAIR_COLORS, 'hairColor', cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'SKIN TONE', SKIN_TONES, 'skinTone', cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'SHIRT COLOR', CLOTHING_COLORS, 'topColor', cfg);
-    yOff = this.buildSwatchSection(yOff, panelW, 'PANTS COLOR', CLOTHING_COLORS, 'bottomColor', cfg);
+    yOff = this.buildSwatchSection(yOff, panelW, 'BOTTOM / HEM COLOR', CLOTHING_COLORS, 'bottomColor', cfg);
     yOff = this.buildSwatchSection(yOff, panelW, 'SHOES COLOR', CLOTHING_COLORS, 'shoeColor', cfg);
     yOff = this.buildAccessorySection(yOff, panelW, cfg);
 
     void yOff;
+  }
+
+  private removeNameInput(): void {
+    if (this.nameInput) {
+      document.body.removeChild(this.nameInput);
+      this.nameInput = null;
+    }
+  }
+
+  shutdown(): void {
+    this.removeNameInput();
+  }
+
+  private buildNameSection(yOff: number, cfg: CharacterConfig): number {
+    const labelTxt = this.add.text(8, yOff, 'NAME', {
+      fontSize: '13px', color: '#ffd700', fontStyle: 'bold',
+    });
+    this.contentContainer.add(labelTxt);
+    this.optionObjects.push(labelTxt);
+
+    // Position the DOM input relative to the canvas
+    const canvas = this.game.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const gameW = this.game.config.width as number;
+    const scaleX = rect.width / gameW;
+
+    // The content container sits at x=178 in game coords, y=90 in game coords
+    // yOff is relative to content container's local origin
+    const inputGameX = 178 + 8;  // same as the 8px left padding used for other elements
+    const inputGameY = 90 + yOff + 20; // 90 = contentContainer base Y, +20 for label height
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = cfg.name;
+    input.maxLength = 16;
+    input.style.cssText = [
+      'position: fixed',
+      `left: ${rect.left + inputGameX * scaleX}px`,
+      `top: ${rect.top + inputGameY * scaleX}px`,
+      `width: ${200 * scaleX}px`,
+      `height: ${32 * scaleX}px`,
+      `font-size: ${16 * scaleX}px`,
+      'padding: 4px 8px',
+      'border: 2px solid #9b59b6',
+      'border-radius: 6px',
+      'background: #1a1a2e',
+      'color: #ffffff',
+      'outline: none',
+      'z-index: 1000',
+      'box-sizing: border-box',
+    ].join('; ');
+
+    input.addEventListener('input', () => {
+      this.currentConfig.name = input.value || (cfg.id === 'dad' ? 'Dad' : 'Lillian');
+    });
+    document.body.appendChild(input);
+    this.nameInput = input;
+
+    return yOff + 20 + Math.ceil(32 * scaleX) + 12;
   }
 
   private buildSectionHeader(yOff: number, label: string): number {
@@ -209,6 +272,7 @@ export class CustomizeScene extends Phaser.Scene {
 
       const zone = this.add.zone(bx + btnW / 2, by + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => {
+        MusicManager.sfx('select');
         this.currentConfig.hairStyle = style;
         this.refreshPreview();
         this.buildOptions();
@@ -252,6 +316,7 @@ export class CustomizeScene extends Phaser.Scene {
 
       const zone = this.add.zone(sx + sz / 2, sy + sz / 2, sz, sz).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => {
+        MusicManager.sfx('select');
         (this.currentConfig as unknown as Record<string, unknown>)[key] = sw.value;
         this.refreshPreview();
         this.buildOptions();
@@ -294,6 +359,7 @@ export class CustomizeScene extends Phaser.Scene {
 
       const zone = this.add.zone(bx + btnW / 2, by + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => {
+        MusicManager.sfx('select');
         this.currentConfig.clothingStyle = s.id;
         this.refreshPreview();
         this.buildOptions();
@@ -337,6 +403,7 @@ export class CustomizeScene extends Phaser.Scene {
 
       const zone = this.add.zone(bx + btnW / 2, by + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => {
+        MusicManager.sfx('select');
         this.currentConfig.accessory = acc;
         this.refreshPreview();
         this.buildOptions();
@@ -368,6 +435,7 @@ export class CustomizeScene extends Phaser.Scene {
     zone.on('pointerover', () => { bg.clear(); bg.fillStyle(0x27ae60); bg.fillRoundedRect(bx, by, btnW, btnH, 10); });
     zone.on('pointerout', () => { bg.clear(); bg.fillStyle(COLORS.GREEN); bg.fillRoundedRect(bx, by, btnW, btnH, 10); });
     zone.on('pointerdown', () => {
+      MusicManager.sfx('start');
       this.tweens.add({ targets: txt, scaleX: 0.9, scaleY: 0.9, duration: 80, yoyo: true });
       const state = SaveManager.load();
       state.dadConfig = this.dadConfig;

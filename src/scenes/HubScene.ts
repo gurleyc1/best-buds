@@ -4,6 +4,7 @@ import { CharacterRenderer } from '../systems/CharacterRenderer';
 import { SaveManager } from '../systems/SaveManager';
 import { SceneTransition } from '../systems/SceneTransition';
 import { TransportMode } from '../types';
+import { MusicManager } from '../systems/MusicManager';
 
 interface LocationData {
   x: number;
@@ -36,23 +37,29 @@ export class HubScene extends Phaser.Scene {
   private readonly START_Y = 260;
 
   private readonly LOCATIONS: LocationData[] = [
-    { x: 160, y: 160, label: 'Home', dialogue: "Let's build a marble run!", scene: SCENE_KEYS.MARBLE_RUN, triggerW: 80, triggerH: 80 },
-    { x: 960, y: 200, label: 'Park', dialogue: "Let's explore!", scene: undefined, triggerW: 80, triggerH: 80 },
-    { x: 960, y: 600, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 80, triggerH: 80 },
+    { x: 160, y: 160, label: 'Home', dialogue: 'Home sweet home!', scene: undefined, triggerW: 80, triggerH: 80 },
+    { x: 960, y: 200, label: 'Park', dialogue: 'Keepy uppy time!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 80, triggerH: 80 },
+    { x: 960, y: 750, label: 'Tennis Court', dialogue: 'Tennis time!', scene: SCENE_KEYS.TENNIS, triggerW: 80, triggerH: 80 },
     { x: 200, y: 900, label: 'Soccer Field', dialogue: 'Penalty kicks!', scene: SCENE_KEYS.SOCCER, triggerW: 80, triggerH: 80 },
-    { x: 700, y: 900, label: 'Playground', dialogue: 'Keepy uppy!', scene: SCENE_KEYS.KEEPY_UPPY, triggerW: 80, triggerH: 80 },
+    { x: 700, y: 900, label: 'Playground', dialogue: "Let's play on the playground!", scene: SCENE_KEYS.PLAYGROUND, triggerW: 80, triggerH: 80 },
+    { x: 400, y: 700, label: 'Ice Cream Shop', dialogue: 'Ice cream time! 🍦', scene: SCENE_KEYS.ICE_CREAM, triggerW: 80, triggerH: 80 },
   ];
 
   constructor() { super({ key: SCENE_KEYS.HUB }); }
 
-  create(): void {
+  create(data?: { returnX?: number; returnY?: number }): void {
+    const startX = data?.returnX ?? this.START_X;
+    const startY = data?.returnY ?? this.START_Y;
+
     SceneTransition.fadeIn(this, 400);
+    MusicManager.resume();
+    MusicManager.playTheme('hub');
     this.transitioning = false;
     this.triggerZones = [];
     this.triggerCooldown = this.TRIGGER_COOLDOWN_MS;
 
     this.buildWorld();
-    this.setupPlayer();
+    this.setupPlayer(startX, startY);
     this.setupCamera();
     this.setupInput();
     this.setupTransportUI();
@@ -112,6 +119,7 @@ export class HubScene extends Phaser.Scene {
     this.buildTennisCourt(g);
     this.buildSoccerField(g);
     this.buildPlayground(g);
+    this.buildIceCreamShop(g);
 
     // 6. Trees — scattered in grass areas, away from roads and buildings
     this.drawTrees();
@@ -242,6 +250,46 @@ export class HubScene extends Phaser.Scene {
     this.addTriggerZone(loc);
   }
 
+  private buildIceCreamShop(g: Phaser.GameObjects.Graphics): void {
+    const loc = this.LOCATIONS[5]; // x=400, y=700
+
+    // Building front (light pink)
+    g.fillStyle(0xffb3d9);
+    g.fillRect(loc.x - 70, loc.y - 70, 140, 120);
+
+    // Awning stripes (pink and white)
+    const stripeCount = 7;
+    const stripeW = 140 / stripeCount;
+    for (let i = 0; i < stripeCount; i++) {
+      g.fillStyle(i % 2 === 0 ? 0xff69b4 : 0xffffff, 0.9);
+      g.fillRect(loc.x - 70 + i * stripeW, loc.y - 70, stripeW, 18);
+    }
+
+    // Door
+    g.fillStyle(0x8b5e3c);
+    g.fillRect(loc.x - 14, loc.y + 14, 28, 36);
+
+    // Window left
+    g.fillStyle(0x87ceeb, 0.8);
+    g.fillRect(loc.x - 60, loc.y - 40, 30, 28);
+    g.lineStyle(1, 0xffffff, 0.9);
+    g.lineBetween(loc.x - 45, loc.y - 40, loc.x - 45, loc.y - 12);
+    g.lineBetween(loc.x - 60, loc.y - 26, loc.x - 30, loc.y - 26);
+
+    // Window right
+    g.fillStyle(0x87ceeb, 0.8);
+    g.fillRect(loc.x + 30, loc.y - 40, 30, 28);
+    g.lineStyle(1, 0xffffff, 0.9);
+    g.lineBetween(loc.x + 45, loc.y - 40, loc.x + 45, loc.y - 12);
+    g.lineBetween(loc.x + 30, loc.y - 26, loc.x + 60, loc.y - 26);
+
+    // Ice cream sign on front
+    this.add.text(loc.x, loc.y - 52, '🍦', { fontSize: '18px' }).setOrigin(0.5).setDepth(2);
+
+    this.addLocationLabel(loc);
+    this.addTriggerZone(loc);
+  }
+
   private drawTrees(): void {
     // Scattered trees in grass areas — away from roads (x=564-636, y=564-636) and buildings
     const treePositions: [number, number][] = [
@@ -295,13 +343,13 @@ export class HubScene extends Phaser.Scene {
 
   // ─── Player Setup ─────────────────────────────────────────────────────────
 
-  private setupPlayer(): void {
+  private setupPlayer(startX: number, startY: number): void {
     const state = SaveManager.load();
     const dadConfig = state.dadConfig;
     const lillianConfig = state.lillianConfig;
 
-    this.playerContainer = CharacterRenderer.create(this, this.START_X, this.START_Y, dadConfig, 1.5);
-    this.companionContainer = CharacterRenderer.create(this, this.START_X - 40, this.START_Y, lillianConfig, 1.5);
+    this.playerContainer = CharacterRenderer.create(this, startX, startY, dadConfig, 1.5);
+    this.companionContainer = CharacterRenderer.create(this, startX - 40, startY, lillianConfig, 1.5);
 
     // Enable arcade physics on the player container so world bounds are respected
     this.physics.add.existing(this.playerContainer);
@@ -322,7 +370,7 @@ export class HubScene extends Phaser.Scene {
     carGen.fillCircle(46, 4, 5);
     carGen.generateTexture('car_hub', 56, 32);
     carGen.destroy();
-    this.carSprite = this.add.image(this.START_X, this.START_Y, 'car_hub');
+    this.carSprite = this.add.image(startX, startY, 'car_hub');
     this.carSprite.setVisible(false);
     this.carSprite.setDepth(4);
   }
@@ -372,6 +420,20 @@ export class HubScene extends Phaser.Scene {
   // ─── Transport UI ─────────────────────────────────────────────────────────
 
   private setupTransportUI(): void {
+    // Mute toggle button — scroll-fixed, top-right
+    let muted = false;
+    const muteBtn = this.add.text(GAME_WIDTH - 10, 10, '🔊', {
+      fontSize: '20px',
+      backgroundColor: '#00000066',
+      padding: { x: 6, y: 3 },
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(200).setInteractive({ useHandCursor: true });
+
+    muteBtn.on('pointerdown', () => {
+      muted = !muted;
+      MusicManager.setMasterVolume(muted ? 0 : 1);
+      muteBtn.setText(muted ? '🔇' : '🔊');
+    });
+
     const walkBtn = this.add.text(0, 0, '\uD83D\uDEB6 Walk', {
       fontSize: '18px', backgroundColor: '#2c3e50', padding: { x: 10, y: 6 },
     }).setScrollFactor(0).setDepth(200).setInteractive({ useHandCursor: true });
@@ -510,6 +572,7 @@ export class HubScene extends Phaser.Scene {
   }
 
   private showDialogue(loc: LocationData): void {
+    MusicManager.sfx('select');
     if (this.dialogueBubble) {
       this.dialogueBubble.destroy();
       this.dialogueBubble = null;
@@ -540,7 +603,12 @@ export class HubScene extends Phaser.Scene {
       }
       if (loc.scene && !this.transitioning) {
         this.transitioning = true;
-        SceneTransition.switchScene(this, loc.scene);
+        SceneTransition.fadeOut(this, 300).then(() => {
+          this.scene.start(loc.scene!, {
+            returnX: this.playerContainer.x,
+            returnY: this.playerContainer.y,
+          });
+        });
       }
     });
   }

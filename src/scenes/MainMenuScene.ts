@@ -3,6 +3,7 @@ import { SCENE_KEYS, COLORS, GAME_WIDTH, GAME_HEIGHT } from '../config';
 import { CharacterRenderer } from '../systems/CharacterRenderer';
 import { SaveManager } from '../systems/SaveManager';
 import { SceneTransition } from '../systems/SceneTransition';
+import { MusicManager } from '../systems/MusicManager';
 
 export class MainMenuScene extends Phaser.Scene {
   private dadPreview: Phaser.GameObjects.Container | null = null;
@@ -17,6 +18,16 @@ export class MainMenuScene extends Phaser.Scene {
     this.createCharacterPreviews();
     this.createButtons();
     this.createVersionText();
+
+    // Start audio on first interaction (browser requires user gesture)
+    this.input.once('pointerdown', () => {
+      MusicManager.init();
+      MusicManager.playTheme('hub');
+    });
+    this.input.keyboard?.once('keydown', () => {
+      MusicManager.init();
+      MusicManager.playTheme('hub');
+    });
   }
 
   private createBackground(): void {
@@ -91,10 +102,10 @@ export class MainMenuScene extends Phaser.Scene {
     );
 
     // Character name labels
-    this.add.text(GAME_WIDTH / 2 - 60, 555, 'Dad', {
+    this.add.text(GAME_WIDTH / 2 - 60, 555, state.dadConfig.name, {
       fontSize: '14px', color: '#aaaaaa',
     }).setOrigin(0.5);
-    this.add.text(GAME_WIDTH / 2 + 60, 555, 'Lillian', {
+    this.add.text(GAME_WIDTH / 2 + 60, 555, state.lillianConfig.name, {
       fontSize: '14px', color: '#aaaaaa',
     }).setOrigin(0.5);
 
@@ -129,11 +140,13 @@ export class MainMenuScene extends Phaser.Scene {
 
     // PLAY button
     this.createButton(GAME_WIDTH / 2, btnY, btnW, btnH, 'PLAY', 0x2ecc71, 0x27ae60, () => {
+      MusicManager.sfx('select');
       SceneTransition.switchScene(this, SCENE_KEYS.HUB);
     });
 
     // CUSTOMIZE button
     this.createButton(GAME_WIDTH / 2, btnY + 70, btnW, btnH, 'CUSTOMIZE', 0x9b59b6, 0x8e44ad, () => {
+      MusicManager.sfx('select');
       SceneTransition.switchScene(this, SCENE_KEYS.CUSTOMIZE);
     });
   }
