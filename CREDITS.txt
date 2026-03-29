@@ -1,0 +1,15 @@
+Best Buds - Asset Credits
+=========================
+
+All Kenney.nl assets are released under Creative Commons CC0 1.0 Universal.
+No attribution required, but credited here with thanks.
+
+Kenney.nl - RPG Urban Pack
+https://kenney.nl/assets/rpg-urban-pack
+License: CC0 1.0 Universal
+
+Kenney.nl - Foliage Sprites
+https://kenney.nl/assets/foliage-sprites
+License: CC0 1.0 Universal
+
+Game code and character designs by Best Buds project contributors.
