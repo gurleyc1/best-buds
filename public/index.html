@@ -1000,61 +1000,36 @@
 })();
 </script>
 
+<!-- ─── FEEDBACK ──────────────────────────────────────────────────────────────── -->
+<div class="main-wrap">
+  <div class="section-narrow">
+    <span class="label">Leave a note</span>
+    <h2 class="section-title reveal" style="margin-bottom:8px;">We'd love to hear from you.</h2>
+    <p class="section-body reveal" style="margin-bottom:32px;">Questions, ideas, reactions — drop them here. Comments post directly to our GitHub.</p>
+    <script src="https://giscus.app/client.js"
+      data-repo="gurleyc1/best-buds"
+      data-repo-id="R_kgDOR0AT0w"
+      data-category="General"
+      data-category-id="DIC_kwDOR0AT084C5jg7"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="light"
+      data-lang="en"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</div>
+
 <!-- ─── FOOTER ─────────────────────────────────────────────────────────────────── -->
 <footer>
   <p>Best Buds — made with love by Chris &amp; Lillian</p>
   <p id="footer-year"></p>
-  <p style="margin-top:12px;">
-    <button id="feedback-toggle" style="
-      background: none; border: none; cursor: pointer;
-      font-family: var(--sans); font-size: 0.78rem;
-      color: rgba(255,255,255,0.45); letter-spacing: 0.06em;
-      text-transform: uppercase; padding: 0;
-      transition: color .2s;
-    ">Leave a note ↓</button>
-  </p>
-  <div id="feedback-drawer" style="
-    max-height: 0; overflow: hidden;
-    transition: max-height .4s ease, padding .4s ease;
-    padding: 0 0;
-  ">
-    <div style="max-width: 680px; margin: 24px auto 0;">
-      <script src="https://giscus.app/client.js"
-        data-repo="gurleyc1/best-buds"
-        data-repo-id="R_kgDOR0AT0w"
-        data-category="General"
-        data-category-id="DIC_kwDOR0AT084C5jg7"
-        data-mapping="pathname"
-        data-strict="0"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-input-position="bottom"
-        data-theme="dark"
-        data-lang="en"
-        data-loading="lazy"
-        crossorigin="anonymous"
-        async>
-      </script>
-    </div>
-  </div>
 </footer>
-
-<script>
-  (function() {
-    const btn    = document.getElementById('feedback-toggle');
-    const drawer = document.getElementById('feedback-drawer');
-    let open = false;
-    btn.addEventListener('click', () => {
-      open = !open;
-      drawer.style.maxHeight = open ? '900px' : '0';
-      drawer.style.padding   = open ? '0 0 32px' : '0 0';
-      btn.textContent        = open ? 'Leave a note ↑' : 'Leave a note ↓';
-      btn.style.color        = open ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)';
-    });
-    btn.addEventListener('mouseenter', () => { btn.style.color = 'rgba(255,255,255,0.75)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.color = open ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)'; });
-  })();
-</script>
 
 <!-- ─── CONTENT CONFIG + SCRIPT ──────────────────────────────────────────────── -->
 <script>
