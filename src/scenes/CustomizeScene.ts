@@ -64,7 +64,7 @@ export class CustomizeScene extends Phaser.Scene {
       fontSize: '28px', color: '#ecf0f1',
       backgroundColor: '#2c3e50', padding: { x: 10, y: 2 },
     }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
-    backBtn.on('pointerdown', () => SceneTransition.switchScene(this, SCENE_KEYS.MAIN_MENU));
+    backBtn.on('pointerdown', () => { this.removeNameInput(); SceneTransition.switchScene(this, SCENE_KEYS.MAIN_MENU); });
   }
 
   private createTabs(): void {
@@ -441,6 +441,7 @@ export class CustomizeScene extends Phaser.Scene {
       state.dadConfig = this.dadConfig;
       state.lillianConfig = this.lillianConfig;
       SaveManager.save(state);
+      this.removeNameInput();
       SceneTransition.switchScene(this, SCENE_KEYS.MAIN_MENU);
     });
   }

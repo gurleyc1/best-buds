@@ -18,7 +18,7 @@ export class KeepyUppyScene extends BaseMiniGameScene {
   private ballVX = 0;
   private ballVY = 0;
   private readonly ballR = 22;
-  private readonly gravityY = 50;
+  private readonly gravityY = 120;
 
   // Wind
   private windValue = 0;
@@ -246,20 +246,10 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     const clampedX = Phaser.Math.Clamp(targetX, 30, GAME_WIDTH - 30);
     if (who === 'dad') {
       this.dadX = clampedX;
-      this.tweens.add({
-        targets: this.dadContainer,
-        x: clampedX,
-        duration: 120,
-        ease: 'Power1',
-      });
+      this.dadContainer.setX(clampedX);
     } else {
       this.lillianX = clampedX;
-      this.tweens.add({
-        targets: this.lillianContainer,
-        x: clampedX,
-        duration: 120,
-        ease: 'Power1',
-      });
+      this.lillianContainer.setX(clampedX);
     }
   }
 
@@ -282,8 +272,8 @@ export class KeepyUppyScene extends BaseMiniGameScene {
     this.scoreText1?.setText(String(this.hits));
     this.hitsText.setText('Hits: ' + this.hits);
 
-    // Always upward – strong random pop
-    const upForce = 280 + Math.random() * 170;
+    // Always upward – moderate pop (not all the way to ceiling)
+    const upForce = 190 + Math.random() * 70;
     const hPush   = (tapX - this.ballX) * 0.1 + (Math.random() - 0.5) * 40;
 
     this.ballVY = -upForce;          // always negative (upward)

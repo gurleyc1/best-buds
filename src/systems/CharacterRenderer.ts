@@ -942,16 +942,17 @@ function drawHair(
       g.fillStyle(0xff69b4);
       g.fillEllipse(bandX, bandY, headR * 0.5, headR * 0.32);
 
-      // flowing tail — main + shadow
+      // flowing tail — hangs down from gathering band
       const tailX = headR * 0.28;
+      const tailCY = headCY + headR * 1.2;
       g.fillStyle(shd);
-      g.fillEllipse(tailX + headR * 0.1, headCY - headR * 1.1, headR * 0.45, headR * 2.1);
+      g.fillEllipse(tailX + headR * 0.12, tailCY + headR * 0.1, headR * 0.52, headR * 2.4);
       g.fillStyle(color);
-      g.fillEllipse(tailX, headCY - headR * 1.15, headR * 0.42, headR * 2.0);
+      g.fillEllipse(tailX, tailCY, headR * 0.48, headR * 2.2);
 
       // highlight on tail
       g.fillStyle(hl);
-      g.fillEllipse(tailX - headR * 0.06, headCY - headR * 0.85, headR * 0.12, headR * 0.65);
+      g.fillEllipse(tailX - headR * 0.06, tailCY - headR * 0.4, headR * 0.12, headR * 0.65);
       break;
     }
 

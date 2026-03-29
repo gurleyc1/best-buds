@@ -47,7 +47,7 @@ export class HubScene extends Phaser.Scene {
 
   constructor() { super({ key: SCENE_KEYS.HUB }); }
 
-  create(data?: { returnX?: number; returnY?: number }): void {
+  create(data?: { returnX?: number; returnY?: number; transportMode?: string }): void {
     const startX = data?.returnX ?? this.START_X;
     const startY = data?.returnY ?? this.START_Y;
 
@@ -63,6 +63,10 @@ export class HubScene extends Phaser.Scene {
     this.setupCamera();
     this.setupInput();
     this.setupTransportUI();
+
+    if (data?.transportMode === 'car') {
+      this.setTransport('car');
+    }
 
     this.triggerZones.forEach(tz => { tz.triggered = false; });
 
@@ -361,7 +365,7 @@ export class HubScene extends Phaser.Scene {
     const lillianConfig = state.lillianConfig;
 
     this.playerContainer = CharacterRenderer.create(this, startX, startY, dadConfig, 1.5);
-    this.companionContainer = CharacterRenderer.create(this, startX - 40, startY, lillianConfig, 1.5);
+    this.companionContainer = CharacterRenderer.create(this, startX - 40, startY, lillianConfig, 1.75);
 
     // Enable arcade physics on the player container so world bounds are respected
     this.physics.add.existing(this.playerContainer);
@@ -652,6 +656,7 @@ export class HubScene extends Phaser.Scene {
           this.scene.start(loc.scene!, {
             returnX: this.playerContainer.x,
             returnY: this.playerContainer.y,
+            transportMode: this.transportMode,
           });
         });
       }

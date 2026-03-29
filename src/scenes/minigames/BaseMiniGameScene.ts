@@ -13,10 +13,10 @@ export abstract class BaseMiniGameScene extends Phaser.Scene {
   protected scoreText2!: Phaser.GameObjects.Text;
   protected abstract gameName: string;
 
-  protected sceneData: { returnX?: number; returnY?: number } = {};
+  protected sceneData: { returnX?: number; returnY?: number; transportMode?: string } = {};
   private keyEsc!: Phaser.Input.Keyboard.Key;
 
-  protected captureReturnData(data?: { returnX?: number; returnY?: number }): void {
+  protected captureReturnData(data?: { returnX?: number; returnY?: number; transportMode?: string }): void {
     this.sceneData = data ?? {};
   }
 

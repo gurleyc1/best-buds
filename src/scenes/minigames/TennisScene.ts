@@ -188,9 +188,9 @@ export class TennisScene extends BaseMiniGameScene {
     const state = SaveManager.load();
     this.dadContainer = CharacterRenderer.create(this, this.dadX, this.dadY, state.dadConfig, 1.8);
     this.dadContainer.setDepth(5);
-    this.lillianContainer = CharacterRenderer.create(this, this.lillianX, this.lillianY, state.lillianConfig, 1.8);
+    this.lillianContainer = CharacterRenderer.create(this, this.lillianX, this.lillianY, state.lillianConfig, 1.5);
     this.lillianContainer.setDepth(5);
-    this.lillianContainer.setScale(-1.8, 1.8);
+    this.lillianContainer.setScale(-1.5, 1.5);
   }
 
   // ─── Control bar ───────────────────────────────────────────────────────────
@@ -617,17 +617,17 @@ export class TennisScene extends BaseMiniGameScene {
         && this.ballX + this.BALL_R >= this.NET_X - this.NET_HALF_W
         && this.ballX < this.NET_X) {
         // Moving right, hit left face
-        this.ballX = this.NET_X - this.NET_HALF_W - this.BALL_R;
-        this.ballVX = -Math.abs(this.ballVX) * 0.45;
-        this.ballVY *= 0.75;
+        this.ballX = this.NET_X - this.NET_HALF_W - this.BALL_R - 2;
+        this.ballVX = -Math.max(120, Math.abs(this.ballVX) * 0.5);
+        this.ballVY = -Math.abs(this.ballVY * 0.75) - 60;
         hitNet = true;
       } else if (this.ballVX < 0
         && this.ballX - this.BALL_R <= this.NET_X + this.NET_HALF_W
         && this.ballX > this.NET_X) {
         // Moving left, hit right face
-        this.ballX = this.NET_X + this.NET_HALF_W + this.BALL_R;
-        this.ballVX = Math.abs(this.ballVX) * 0.45;
-        this.ballVY *= 0.75;
+        this.ballX = this.NET_X + this.NET_HALF_W + this.BALL_R + 2;
+        this.ballVX = Math.max(120, Math.abs(this.ballVX) * 0.5);
+        this.ballVY = -Math.abs(this.ballVY * 0.75) - 60;
         hitNet = true;
       }
 
