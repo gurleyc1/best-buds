@@ -150,6 +150,11 @@ export class MainMenuScene extends Phaser.Scene {
       SceneTransition.switchScene(this, SCENE_KEYS.CUSTOMIZE);
     });
 
+    // OUR STORY button — opens website
+    this.createButton(GAME_WIDTH / 2, btnY + 140, btnW, btnH, 'OUR STORY', 0xd4603a, 0xb84e2a, () => {
+      MusicManager.sfx('select');
+      window.open('./index.html', '_self');
+    });
   }
 
   private createButton(
@@ -186,13 +191,5 @@ export class MainMenuScene extends Phaser.Scene {
     this.add.text(GAME_WIDTH - 8, GAME_HEIGHT - 8, 'v0.1', {
       fontSize: '11px', color: '#555555',
     }).setOrigin(1, 1);
-
-    // Subtle website link bottom-left
-    const link = this.add.text(8, GAME_HEIGHT - 8, '⌂ Our Story', {
-      fontSize: '12px', color: '#555555',
-    }).setOrigin(0, 1).setInteractive({ useHandCursor: true });
-    link.on('pointerover', () => link.setColor('#d4603a'));
-    link.on('pointerout',  () => link.setColor('#555555'));
-    link.on('pointerdown', () => { window.open('./index.html', '_self'); });
   }
 }
